@@ -388,7 +388,7 @@ input::placeholder{color:var(--text3);}
       <div class="user-row" id="sidebar-user-row">
         <div class="avatar" style="background:linear-gradient(135deg,#3b82f6,#8b5cf6)">?</div>
         <div class="user-info"><div class="name" id="sidebar-name">Not signed in</div><div class="role" id="sidebar-role">—</div></div>
-        <div id="sidebar-badge"></div>
+        <div id="sidebar-badge"><div class="unverified-badge" onclick="showModal('auth-modal')" style="cursor:pointer;">Sign in</div></div>
       </div>
     </div>
   </div>
@@ -1475,17 +1475,15 @@ setInterval(()=>{
     useDemoMode();
   } else {
     try{
-      const{data:{session}}=await supabaseClient.auth.getSession();
-      if(session&&session.user){
+      const{data:{session},error}=await supabaseClient.auth.getSession();
+      if(!error && session && session.user){
         currentUser=session.user;
         await fetchProfile();
         updateUserUI();
         await loadCasesFromDB();
         await loadRespondedCaseIds();
         subscribeToRealtime();
-        // Has valid session — go straight to feed
       } else {
-        // No session — always show sign in
         showModal('auth-modal');
       }
     }catch(e){
@@ -1496,25 +1494,12 @@ setInterval(()=>{
   renderFeed();
   renderLeaderboard();
 
-  // Belt-and-suspenders: also wire file input via event delegation
-  // This catches cases where inline onchange fails (e.g. after DOM moves)
+  // Wire file input - simple direct approach
   document.addEventListener('change', function(e){
-    if(e.target && e.target.id === 'file-input' && e.target.files[0]){
-      console.log('File input change via delegation:', e.target.files[0].name);
+    if(e.target && e.target.id==='file-input' && e.target.files && e.target.files[0]){
       handleUpload(e.target);
     }
   });
-
-  // Also wire directly after a short delay to catch late DOM
-  setTimeout(()=>{
-    const fi=document.getElementById('file-input');
-    if(fi){
-      fi.addEventListener('change', function(){
-        console.log('File input change via direct listener:', this.files[0]?.name);
-        if(this.files[0]) handleUpload(this);
-      });
-    }
-  }, 500);
 
   if(supabaseClient){
     supabaseClient.auth.onAuthStateChange(async(event,session)=>{
@@ -1532,6 +1517,13 @@ setInterval(()=>{
       }
     });
   }
+
+  // Force show auth modal if still not signed in after 2 seconds
+  setTimeout(()=>{
+    if(!currentUser && !demoMode){
+      showModal('auth-modal');
+    }
+  }, 2000);
 })();
 </script>
 </body>
