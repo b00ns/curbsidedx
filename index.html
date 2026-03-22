@@ -430,11 +430,11 @@ input::placeholder{color:var(--text3);}
         </div>
 
         <div class="section-label">Upload ECG / tracing</div>
-        <div class="upload-zone" id="upload-zone">
+        <div class="upload-zone" id="upload-zone" onclick="triggerFileInput()">
           <div class="uz-icon" id="uz-icon">⊕</div>
           <div class="uz-text" id="uz-text">ECG, pacemaker report, or telemetry strip</div>
           <div class="uz-types">JPG · PNG · PDF · up to 20MB</div>
-          <input type="file" accept=".jpg,.jpeg,.png,.pdf" id="file-input" onchange="handleUpload(this)" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;z-index:10;">
+          <input type="file" accept=".jpg,.jpeg,.png,.pdf" id="file-input" onchange="handleUpload(this)" style="display:none;">
         </div>
         <div id="phi-scan-status" style="text-align:center;margin-top:4px;"></div>
         <img id="upload-preview" class="upload-preview" alt="ECG preview">
@@ -956,6 +956,11 @@ function onPHIOverride(){
   phiScanPassed=document.getElementById('phi-override-check').checked;
   if(phiScanPassed){setScanBadge('⚠️ Override — physician certified','override');showToast('PHI override accepted — you have certified no PHI is present');}
   else phiScanPassed=false;
+}
+
+function triggerFileInput(){
+  const fi=document.getElementById('file-input');
+  if(fi){fi.value='';fi.click();}
 }
 
 async function handleUpload(input){
