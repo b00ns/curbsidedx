@@ -187,6 +187,39 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text);overflo
 .uz-types{font-size:10px;color:var(--text3);margin-top:4px;}
 .upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
 .upload-preview{width:100%;height:80px;object-fit:cover;border-radius:var(--r);margin-top:8px;display:none;}
+/* Video preview in upload zone */
+.video-preview{
+  width:100%;border-radius:var(--r);margin-top:8px;display:none;
+  max-height:160px;background:#000;
+}
+/* Video player in case cards */
+.case-video-wrap{
+  border-radius:var(--r);overflow:hidden;margin-bottom:12px;
+  border:1px solid var(--border);background:#000;position:relative;
+}
+.case-video-wrap video{width:100%;display:block;max-height:180px;object-fit:contain;}
+.case-video-wrap .ecg-overlay{
+  position:absolute;top:0;left:0;right:0;
+  display:flex;align-items:flex-start;justify-content:space-between;
+  padding:6px 10px;pointer-events:none;
+}
+/* Video player in case detail overlay */
+.cd-video-block{
+  border-radius:var(--r2);overflow:hidden;border:1px solid var(--border);
+}
+.cd-video-label{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 14px;background:var(--bg3);border-bottom:1px solid var(--border);
+}
+.cd-video-player{width:100%;display:block;max-height:360px;background:#000;}
+/* PHI video warning */
+.phi-video-warning{
+  background:var(--amberbg);border:1px solid rgba(245,158,11,.3);
+  border-radius:var(--r);padding:10px 12px;margin-top:8px;
+  font-size:11px;color:var(--text2);line-height:1.6;display:none;
+}
+.phi-video-warning.show{display:block;}
+.phi-video-warning strong{color:var(--amber);}
 textarea{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-family:var(--font-sans);font-size:13px;padding:10px 12px;resize:none;line-height:1.6;transition:border-color .15s;}
 textarea:focus{outline:none;border-color:var(--accent);}
 textarea::placeholder{color:var(--text3);}
@@ -1596,15 +1629,19 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
           <div class="npi-result" id="npi-result"></div>
         </div>
 
-        <div class="section-label" style="margin-top:0;">Upload ECG / tracing</div>
+        <div class="section-label" style="margin-top:0;">Upload ECG / tracing / video</div>
         <div class="upload-zone" id="upload-zone" onclick="triggerFileInput()">
           <div class="uz-icon" id="uz-icon">⊕</div>
-          <div class="uz-text" id="uz-text">ECG, pacemaker report, or telemetry strip</div>
-          <div class="uz-types">JPG · PNG · PDF · up to 20MB</div>
-          <input type="file" accept=".jpg,.jpeg,.png,.pdf" id="file-input" onchange="handleUpload(this)" style="display:none;">
+          <div class="uz-text" id="uz-text">ECG, pacemaker report, telemetry strip, or angiogram clip</div>
+          <div class="uz-types">JPG · PNG · PDF · MP4 · MOV · WEBM · up to 100MB</div>
+          <input type="file" accept=".jpg,.jpeg,.png,.pdf,.mp4,.mov,.webm,.avi,.m4v" id="file-input" onchange="handleUpload(this)" style="display:none;">
         </div>
         <div id="phi-scan-status" style="text-align:center;margin-top:4px;"></div>
         <img id="upload-preview" class="upload-preview" alt="ECG preview">
+        <video id="video-preview" class="video-preview" controls muted playsinline></video>
+        <div class="phi-video-warning" id="phi-video-warning">
+          ⚠️ <strong>Video PHI reminder:</strong> Cath lab and echo systems often embed patient name, DOB, and MRN in the video filename or burned-in overlay. Before uploading, confirm the filename contains no patient identifiers and that any on-screen patient info has been cropped or redacted.
+        </div>
 
         <div class="phi-alert" id="phi-alert">
           <div class="phi-alert-title">🔴 Potential PHI Detected</div>
@@ -2169,7 +2206,16 @@ async function ocrImageForPHI(file){
 // UPLOAD FLOW
 // ══════════════════════════════════════════════
 let uploadedFile=null,uploadedFileStripped=null,uploadedImageUrl=null,uploadedImageDataUrl=null;
+let uploadedVideoUrl=null, uploadedIsVideo=false;
 let phiScanPassed=false,phiFindings=[];
+
+const VIDEO_TYPES=['mp4','mov','webm','avi','m4v'];
+
+function isVideoFile(file){
+  if(!file)return false;
+  const ext=file.name.split('.').pop().toLowerCase();
+  return VIDEO_TYPES.includes(ext)||file.type.startsWith('video/');
+}
 
 function setScanBadge(msg,type){
   const el=document.getElementById('phi-scan-status');
@@ -2201,59 +2247,97 @@ async function handleUpload(input){
   console.log('handleUpload called', input?.files?.[0]?.name);
   if(!input.files[0]){console.log('No file selected');return;}
   const rawFile=input.files[0];
-  uploadedFile=rawFile;phiScanPassed=true;phiFindings=[];hidePHIAlert();
+  const isVideo=isVideoFile(rawFile);
+  uploadedFile=rawFile;uploadedIsVideo=isVideo;
+  phiScanPassed=true;phiFindings=[];hidePHIAlert();
+
+  const imgPreview=document.getElementById('upload-preview');
+  const vidPreview=document.getElementById('video-preview');
+  const videoWarning=document.getElementById('phi-video-warning');
   const zone=document.getElementById('upload-zone');
 
-  // Show immediate local preview
-  const reader=new FileReader();
-  reader.onload=e=>{
-    uploadedImageDataUrl=e.target.result;
-    const p=document.getElementById('upload-preview');
-    p.src=e.target.result;
-    p.style.display='block';
-  };
-  reader.readAsDataURL(rawFile);
+  // Hide both previews initially
+  if(imgPreview)imgPreview.style.display='none';
+  if(vidPreview){vidPreview.style.display='none';vidPreview.src='';}
 
   document.getElementById('uz-text').textContent=rawFile.name;
   document.getElementById('uz-icon').textContent='⏳';
   zone.classList.add('uploading');
   zone.classList.remove('has-file','phi-error');
-  setScanBadge('⏳ Uploading…','scanning');
+  setScanBadge('⏳ Processing…','scanning');
 
-  // Strip EXIF metadata silently (always do this regardless of PHI findings)
-  let fileToUpload=rawFile;
-  if(rawFile.type.startsWith('image/')){
-    try{
-      fileToUpload=await stripEXIFMetadata(rawFile);
-      uploadedFileStripped=fileToUpload;
-    }catch(e){
-      uploadedFileStripped=rawFile;
-      fileToUpload=rawFile;
+  if(isVideo){
+    // Video: show local blob preview, display PHI warning, skip EXIF
+    const blobUrl=URL.createObjectURL(rawFile);
+    if(vidPreview){
+      vidPreview.src=blobUrl;
+      vidPreview.style.display='block';
     }
-  }
+    if(imagePreview)imgPreview.style.display='none';
+    if(videoWarning)videoWarning.classList.add('show');
 
-  // Run PHI scan in background — only warn, never block
-  if(rawFile.type.startsWith('image/')){
-    checkEXIFForPHI(rawFile).then(findings=>{
-      if(findings.length>0){
-        phiFindings=findings;
-        setScanBadge(`⚠️ ${findings.length} metadata item(s) stripped`,'override');
+    // Scrub PHI from filename (warn if suspicious)
+    const nameLower=rawFile.name.toLowerCase();
+    const phiNamePatterns=[/\d{4}[-\/]\d{2}[-\/]\d{2}/,/mrn/i,/patient/i,/pt[-_]/i,/dob/i,/ssn/i];
+    const nameHasPHI=phiNamePatterns.some(re=>re.test(rawFile.name));
+    if(nameHasPHI){
+      setScanBadge('⚠️ Filename may contain PHI — review before submitting','override');
+    } else {
+      setScanBadge('⚠️ Video: confirm no PHI in overlay or filename','override');
+    }
+
+    zone.classList.remove('uploading');
+    zone.classList.add('has-file');
+    document.getElementById('uz-icon').textContent='🎬';
+    document.getElementById('uz-text').textContent='✓ '+rawFile.name;
+
+    uploadedImageDataUrl=null;
+    await uploadToStorage(rawFile);
+
+  } else {
+    // Image/PDF flow — unchanged
+    if(videoWarning)videoWarning.classList.remove('show');
+
+    const reader=new FileReader();
+    reader.onload=e=>{
+      uploadedImageDataUrl=e.target.result;
+      if(imgPreview){imgPreview.src=e.target.result;imgPreview.style.display='block';}
+    };
+    reader.readAsDataURL(rawFile);
+
+    // Strip EXIF
+    let fileToUpload=rawFile;
+    if(rawFile.type.startsWith('image/')){
+      try{
+        fileToUpload=await stripEXIFMetadata(rawFile);
+        uploadedFileStripped=fileToUpload;
+      }catch(e){
+        uploadedFileStripped=rawFile;fileToUpload=rawFile;
       }
-    }).catch(()=>{});
+    }
+
+    // PHI scan
+    if(rawFile.type.startsWith('image/')){
+      checkEXIFForPHI(rawFile).then(findings=>{
+        if(findings.length>0){
+          phiFindings=findings;
+          setScanBadge(`⚠️ ${findings.length} metadata item(s) stripped`,'override');
+        }
+      }).catch(()=>{});
+    }
+
+    zone.classList.remove('uploading');
+    zone.classList.add('has-file');
+    document.getElementById('uz-icon').textContent='✓';
+    document.getElementById('uz-text').textContent='✓ '+rawFile.name;
+
+    await uploadToStorage(fileToUpload);
   }
-
-  // Upload immediately
-  zone.classList.remove('uploading');
-  zone.classList.add('has-file');
-  document.getElementById('uz-icon').textContent='✓';
-  document.getElementById('uz-text').textContent='✓ '+rawFile.name;
-
-  await uploadToStorage(fileToUpload);
 }
 
 async function uploadToStorage(file){
   if(!supabaseClient||!currentUser){
-    uploadedImageUrl=uploadedImageDataUrl;
+    if(!uploadedIsVideo) uploadedImageUrl=uploadedImageDataUrl;
     setScanBadge('📱 Local preview only (not signed in)','scanning');
     return;
   }
@@ -2263,35 +2347,56 @@ async function uploadToStorage(file){
   try{
     const origName=uploadedFile?.name||file.name;
     const ext=origName.includes('.')?origName.split('.').pop().toLowerCase():'jpg';
-    const safeExt=['jpg','jpeg','png','pdf'].includes(ext)?ext:'jpg';
-    const path=`ecgs/${currentUser.id}/${Date.now()}.${safeExt}`;
-    const contentType=safeExt==='pdf'?'application/pdf':`image/${safeExt==='jpg'?'jpeg':safeExt}`;
+    const isVid=VIDEO_TYPES.includes(ext);
 
-    console.log('Upload attempt — path:',path,'size:',file.size,'type:',contentType,'user:',currentUser.id);
+    let safeExt, contentType, bucket, folder;
+    if(isVid){
+      safeExt=['mp4','mov','webm'].includes(ext)?ext:'mp4';
+      contentType=`video/${safeExt==='mov'?'quicktime':safeExt}`;
+      bucket='case-videos';
+      folder='videos';
+    } else {
+      safeExt=['jpg','jpeg','png','pdf'].includes(ext)?ext:'jpg';
+      contentType=safeExt==='pdf'?'application/pdf':`image/${safeExt==='jpg'?'jpeg':safeExt}`;
+      bucket='ecg-images';
+      folder='ecgs';
+    }
+
+    // Sanitize filename — strip any PHI patterns from path
+    const safeName=Date.now()+'.'+safeExt;
+    const path=`${folder}/${currentUser.id}/${safeName}`;
+
+    console.log('Upload attempt — bucket:',bucket,'path:',path,'size:',file.size,'type:',contentType);
 
     const{data,error}=await supabaseClient.storage
-      .from('ecg-images')
+      .from(bucket)
       .upload(path, file, {contentType, upsert:false});
 
     if(error){
       console.error('Storage error:', JSON.stringify(error));
       setScanBadge('✗ Upload failed: '+error.message.substring(0,40),'phi-found');
       showToast('Upload failed: '+error.message.substring(0,60), true);
-      uploadedImageUrl=uploadedImageDataUrl;
+      if(!isVid) uploadedImageUrl=uploadedImageDataUrl;
       return;
     }
 
-    const{data:{publicUrl}}=supabaseClient.storage.from('ecg-images').getPublicUrl(path);
-    uploadedImageUrl=publicUrl;
-    setScanBadge('✓ Uploaded to Supabase','clean');
-    showToast('ECG uploaded ✓');
+    const{data:{publicUrl}}=supabaseClient.storage.from(bucket).getPublicUrl(path);
+    if(isVid){
+      uploadedVideoUrl=publicUrl;
+      uploadedImageUrl=null;
+    } else {
+      uploadedImageUrl=publicUrl;
+      uploadedVideoUrl=null;
+    }
+    setScanBadge(isVid?'✓ Video uploaded to Supabase':'✓ Uploaded to Supabase','clean');
+    showToast(isVid?'Video uploaded ✓':'ECG uploaded ✓');
     console.log('Upload success:', publicUrl);
 
   }catch(e){
     console.error('Upload exception:', e.message);
     setScanBadge('✗ '+e.message.substring(0,50),'phi-found');
     showToast('Upload error: '+e.message.substring(0,60), true);
-    uploadedImageUrl=uploadedImageDataUrl;
+    if(!uploadedIsVideo) uploadedImageUrl=uploadedImageDataUrl;
   }
 }
 
@@ -2321,7 +2426,10 @@ function mapDBCase(row){
   authorNpiVerified:row.author_npi_verified||false,
   windowMs,createdAt,expiresAt,
   time:timeAgo(createdAt),
-  q:row.question,hasECG:!!row.ecg_image_url,ecgImageUrl:row.ecg_image_url,
+  q:row.question,hasECG:!!(row.ecg_image_url||row.video_url),
+  ecgImageUrl:row.ecg_image_url||null,
+  videoUrl:row.video_url||null,
+  isVideo:!!row.video_url,
   ecgType:row.ecg_label||'ECG',ddx:row.ddx||[],
   votes:row.votes||(row.ddx||[]).map(()=>0),
   resolvedDx:row.resolved_dx||null,resolvedNote:row.resolved_note||null,
@@ -2350,6 +2458,7 @@ async function persistCase(caseData){
     specialty:caseData.spec,urgency:caseData.urgency,question:caseData.q,
     ddx:caseData.ddx,votes:caseData.votes,total_votes:0,
     ecg_image_url:caseData.ecgImageUrl||null,ecg_label:caseData.ecgType||null,
+    video_url:caseData.videoUrl||null,
     status:'open',expires_at:expiresAt,resolved_dx:null,resolved_note:null
   }).select().single();
   if(error){console.error('persistCase error:',error);return null;}return data;
@@ -2400,7 +2509,17 @@ function ecgPoints(type){
   return pts.join(' ');
 }
 function renderECGThumb(c){
-  if(c.ecgImageUrl)return`<div class="ecg-thumb"><img src="${c.ecgImageUrl}" alt="ECG"><div class="ecg-overlay"><span class="ecg-tag">${c.ecgType}</span><span class="ecg-tag2">De-identified</span></div></div>`;
+  if(c.videoUrl){
+    return`<div class="case-video-wrap">
+      <video src="${c.videoUrl}" muted playsinline preload="metadata" style="width:100%;max-height:180px;display:block;object-fit:contain;background:#000;"
+        onmouseenter="this.play()" onmouseleave="this.pause();this.currentTime=0"></video>
+      <div class="ecg-overlay">
+        <span class="ecg-tag">🎬 Video</span>
+        <span class="ecg-tag2">De-identified</span>
+      </div>
+    </div>`;
+  }
+  if(c.ecgImageUrl)return`<div class="ecg-thumb"><img src="${c.ecgImageUrl}" alt="ECG"><div class="ecg-overlay"><span class="ecg-tag">${c.ecgType||'ECG'}</span><span class="ecg-tag2">De-identified</span></div></div>`;
   const pts=ecgPoints(c.ecgType||'');
   return`<div class="ecg-svg-wrap"><span class="ecg-tag" style="position:absolute;top:6px;left:10px;font-size:9px;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;">${c.ecgType}</span><span class="ecg-tag2" style="position:absolute;top:6px;right:10px;font-size:9px;color:var(--text3);">De-identified</span><svg class="ecg-svg" viewBox="0 0 500 48" preserveAspectRatio="none"><polyline fill="none" stroke="#ef4444" stroke-width="1.4" opacity=".85" points="${pts}"/></svg></div>`;
 }
@@ -2692,15 +2811,26 @@ async function submitCase(){
 
   const btn=document.getElementById('submit-case-btn');btn.disabled=true;btn.textContent='Posting…';
 
-  // If PHI was flagged/overridden but not yet uploaded to storage, do it now
-  if(uploadedFile&&phiScanPassed&&!uploadedImageUrl)
-    await uploadToStorage(uploadedFileStripped||uploadedFile);
+  // If not yet uploaded to storage, do it now
+  if(uploadedFile&&phiScanPassed){
+    if(uploadedIsVideo&&!uploadedVideoUrl) await uploadToStorage(uploadedFile);
+    else if(!uploadedIsVideo&&!uploadedImageUrl) await uploadToStorage(uploadedFileStripped||uploadedFile);
+  }
+
+  const finalEcgUrl=uploadedIsVideo?null:uploadedImageUrl;
+  const finalVideoUrl=uploadedIsVideo?uploadedVideoUrl:null;
 
   const newCase={id:cases.length+1+Date.now(),spec,urgency,author,authorSpec,authorInit,authorColor:'#3b82f6',
     authorId:currentUser?.id||'demo',
     authorNpiVerified:currentProfile?.npi_verified||false,
     windowMs,
-    createdAt:new Date().toISOString(),time:'just now',q,hasECG:!!uploadedFile,ecgImageUrl:uploadedImageUrl,ecgType:uploadedFile?uploadedFile.name.split('.')[0]:null,ddx,votes:ddx.map(()=>0),resolvedDx:null,resolvedNote:null,status:'open',responses:[]};
+    createdAt:new Date().toISOString(),time:'just now',q,
+    hasECG:!!uploadedFile,
+    ecgImageUrl:finalEcgUrl,
+    videoUrl:finalVideoUrl,
+    isVideo:uploadedIsVideo,
+    ecgType:uploadedFile?uploadedFile.name.split('.')[0]:null,
+    ddx,votes:ddx.map(()=>0),resolvedDx:null,resolvedNote:null,status:'open',responses:[]};
   if(supabaseClient&&currentUser){const saved=await persistCase(newCase);if(saved)newCase.id=saved.id;}
   cases.unshift(newCase);myCases++;document.getElementById('s-cases').textContent=myCases;
 
@@ -2715,11 +2845,15 @@ async function submitCase(){
   const winSel=document.getElementById('window-select');
   if(winSel)winSel.value='21600000';
   updateWindowHint();
-  uploadedFile=null;uploadedFileStripped=null;uploadedImageUrl=null;uploadedImageDataUrl=null;phiScanPassed=false;phiFindings=[];
+  uploadedFile=null;uploadedFileStripped=null;uploadedImageUrl=null;uploadedImageDataUrl=null;
+  uploadedVideoUrl=null;uploadedIsVideo=false;
+  phiScanPassed=false;phiFindings=[];
   document.getElementById('upload-zone').classList.remove('has-file','uploading','phi-error');
   document.getElementById('uz-icon').textContent='⊕';
-  document.getElementById('uz-text').textContent='ECG, pacemaker report, or telemetry strip';
+  document.getElementById('uz-text').textContent='ECG, pacemaker report, telemetry strip, or angiogram clip';
   document.getElementById('upload-preview').style.display='none';
+  const vp=document.getElementById('video-preview');if(vp){vp.style.display='none';vp.src='';}
+  const vw=document.getElementById('phi-video-warning');if(vw)vw.classList.remove('show');
   document.getElementById('phi-scan-status').innerHTML='';
   hidePHIAlert();
   btn.disabled=false;btn.textContent='Submit to community →';
@@ -3260,9 +3394,20 @@ function openCaseDetail(id){
   // Question
   document.getElementById('cd-question-text').textContent=c.q;
 
-  // ECG
+  // ECG / Video
   const ecgBlock=document.getElementById('cd-ecg-block');
-  if(c.hasECG||c.ecgImageUrl){
+  if(c.videoUrl){
+    ecgBlock.innerHTML=`<div class="cd-video-block">
+      <div class="cd-video-label">
+        <div class="cd-ecg-label-left">🎬 Angiogram / Video clip</div>
+        <div class="cd-ecg-label-right">De-identified ✓</div>
+      </div>
+      <video class="cd-video-player" src="${c.videoUrl}" controls playsinline preload="metadata"
+        style="width:100%;display:block;max-height:360px;background:#000;object-fit:contain;">
+      </video>
+    </div>`;
+    ecgBlock.style.display='block';
+  } else if(c.hasECG||c.ecgImageUrl){
     if(c.ecgImageUrl){
       ecgBlock.innerHTML=`<div class="cd-ecg-block">
         <div class="cd-ecg-label">
