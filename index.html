@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>CurbsideDx — Physician Curbside Community</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -102,7 +102,8 @@ html[data-theme="dark"] {
   --ecg-bg: #080a0f;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
-html,body{height:100%;min-height:100dvh;}
+html{height:100%;height:100dvh;background:var(--bg2);}
+body{font-family:var(--font-sans);background:var(--bg);color:var(--text);overflow:hidden;height:100%;min-height:100dvh;}
 body{font-family:var(--font-sans);background:var(--bg);color:var(--text);overflow:hidden;}
 .shell{display:grid;grid-template-columns:220px 1fr 300px;height:100vh;}
 .sidebar{background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:10;}
@@ -399,8 +400,8 @@ input::placeholder{color:var(--text3);}
 /* Hidden on desktop — only shown inside @media(max-width:900px) */
 .mobile-filter-bar{display:none;}
 @media(max-width:900px){
-  body{overflow:auto;}
-  .shell{display:flex;flex-direction:column;height:auto;min-height:100dvh;}
+  body{overflow:auto;background:var(--bg);}
+  .shell{display:flex;flex-direction:column;height:auto;min-height:100dvh;background:var(--bg);}
   .sidebar{display:none;}
   .right-panel{display:none;}
   .main{flex:1;min-height:0;display:flex;flex-direction:column;}
@@ -434,9 +435,10 @@ input::placeholder{color:var(--text3);}
     background:var(--bg2);border-top:1px solid var(--border);
     padding-bottom:env(safe-area-inset-bottom,0px);
     backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);}
-  /* Solid background patch below nav for iPhone home indicator area */
-  .mobile-nav::after{content:'';position:fixed;bottom:0;left:0;right:0;
-    height:env(safe-area-inset-bottom,0px);background:var(--bg2);z-index:199;}
+  /* Fill the safe area below nav with matching background */
+  body::after{content:'';position:fixed;bottom:0;left:0;right:0;
+    height:env(safe-area-inset-bottom,0px);
+    background:var(--bg2);z-index:199;pointer-events:none;}
   .rp-drawer-overlay,.sidebar-drawer-overlay{display:none;}
   .rp-drawer-overlay.open,.sidebar-drawer-overlay.open{display:block;}
   .modal{width:calc(100vw - 24px);max-height:92dvh;overflow-y:auto;}
@@ -1433,6 +1435,10 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
   </div>
   <div class="sidebar-footer">
     <div class="user-row" id="mobile-user-row" onclick="closeSidebarDrawer();openProfile();" style="cursor:pointer;">
+      <!-- Populated by updateUserUI() when signed in; shows sign-in button when not -->
+      <div class="avatar" style="background:linear-gradient(135deg,#3b82f6,#8b5cf6)">?</div>
+      <div class="user-info"><div class="name">Not signed in</div><div class="role">—</div></div>
+      <div><div class="unverified-badge" onclick="event.stopPropagation();closeSidebarDrawer();showModal('auth-modal');" style="cursor:pointer;">Sign in</div></div>
     </div>
   </div>
 </div>
