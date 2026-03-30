@@ -1952,8 +1952,8 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
 // ══════════════════════════════════════════════
 // SUPABASE
 // ══════════════════════════════════════════════
-let supabaseClient=null,currentUser=null,currentProfile=null,demoMode=false;
-let npiNudgeDismissed=false;
+var supabaseClient=null,currentUser=null,currentProfile=null,demoMode=false;
+var npiNudgeDismissed=false;
 const SUPABASE_URL_KEY='curbsidedx_supabase_url',SUPABASE_KEY_KEY='curbsidedx_supabase_key';
 
 // Hardcoded credentials — anon key is safe to embed in client code
@@ -1964,7 +1964,8 @@ const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 
 function initSupabase(){
   try{
-    supabaseClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+    window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    supabaseClient = window.supabaseClient;
     return true;
   }catch(e){
     console.error('Supabase init failed:',e);
@@ -4831,12 +4832,7 @@ function toggleTheme(){
 // ══════════════════════════════════════════════
 (async function init(){
   initTheme();
-  // Retry initSupabase up to 10x in case the CDN script hasn't loaded yet
-  let hasConfig = false;
-  for(let i=0;i<10;i++){
-    if(window.supabase){hasConfig=initSupabase();break;}
-    await new Promise(r=>setTimeout(r,200));
-  }
+  const hasConfig = initSupabase();
   if(!hasConfig){
     useDemoMode();
     seedDemoNotifications();
