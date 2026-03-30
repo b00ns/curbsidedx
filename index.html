@@ -4830,7 +4830,12 @@ function toggleTheme(){
 // ══════════════════════════════════════════════
 (async function init(){
   initTheme();
-  const hasConfig=initSupabase();
+  // Retry initSupabase up to 10x in case the CDN script hasn't loaded yet
+  let hasConfig = false;
+  for(let i=0;i<10;i++){
+    if(window.supabase){hasConfig=initSupabase();break;}
+    await new Promise(r=>setTimeout(r,200));
+  }
   if(!hasConfig){
     useDemoMode();
     seedDemoNotifications();
