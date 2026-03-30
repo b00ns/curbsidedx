@@ -8,6 +8,18 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/exifr@7/dist/full.umd.js"></script>
+<script>
+// Create Supabase client immediately after CDN loads — before any other scripts run
+window._supabaseReady = (function(){
+  try {
+    window.supabaseClient = window.supabase.createClient(
+      'https://ebzuytnzbwmzrrspmmqr.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVienV5dG56YndtenJyc3BtbXFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5ODU5MzIsImV4cCI6MjA4OTU2MTkzMn0.2W5wY7EOhaZGnYwvHxQF9H9NowiwRJ53tCvB2HIDeXw'
+    );
+    return true;
+  } catch(e) { console.error('Supabase early init failed:', e); return false; }
+})();
+</script>
 <!-- Inline theme init — prevents flash of wrong theme -->
 <script>
 (function(){
@@ -1964,8 +1976,13 @@ const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 
 function initSupabase(){
   try{
-    window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    supabaseClient = window.supabaseClient;
+    // Use the client created at page load; fall back to creating a new one
+    if(window.supabaseClient){
+      supabaseClient = window.supabaseClient;
+      return true;
+    }
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    window.supabaseClient = supabaseClient;
     return true;
   }catch(e){
     console.error('Supabase init failed:',e);
