@@ -102,7 +102,7 @@ html[data-theme="dark"] {
   --ecg-bg: #080a0f;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
-html,body{height:100%;}
+html,body{height:100%;min-height:100dvh;}
 body{font-family:var(--font-sans);background:var(--bg);color:var(--text);overflow:hidden;}
 .shell{display:grid;grid-template-columns:220px 1fr 300px;height:100vh;}
 .sidebar{background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:10;}
@@ -322,7 +322,7 @@ input::placeholder{color:var(--text3);}
 .toast.show{transform:translateX(-50%) translateY(0);}
 .toast-dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;}
 .toast-dot.error{background:var(--red);}
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);z-index:500;display:flex;align-items:center;justify-content:center;animation:fadein .2s ease;}
+.modal-overlay{position:fixed;inset:0;bottom:0;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);z-index:500;display:flex;align-items:center;justify-content:center;animation:fadein .2s ease;padding:16px;}
 .modal-overlay.hidden{display:none!important;}
 @keyframes fadein{from{opacity:0;}to{opacity:1;}}
 .modal{background:var(--card);border:1px solid var(--border2);border-radius:18px;padding:32px;width:440px;max-width:calc(100vw - 32px);animation:slideUp .3s cubic-bezier(.4,0,.2,1);}
@@ -400,7 +400,7 @@ input::placeholder{color:var(--text3);}
 .mobile-filter-bar{display:none;}
 @media(max-width:900px){
   body{overflow:auto;}
-  .shell{display:flex;flex-direction:column;height:auto;min-height:100dvh;padding-bottom:68px;}
+  .shell{display:flex;flex-direction:column;height:auto;min-height:100dvh;}
   .sidebar{display:none;}
   .right-panel{display:none;}
   .main{flex:1;min-height:0;display:flex;flex-direction:column;}
@@ -433,8 +433,10 @@ input::placeholder{color:var(--text3);}
   .mobile-nav{display:block;position:fixed;bottom:0;left:0;right:0;z-index:200;
     background:var(--bg2);border-top:1px solid var(--border);
     padding-bottom:env(safe-area-inset-bottom,0px);
-    backdrop-filter:blur(12px);
-    -webkit-backdrop-filter:blur(12px);}
+    backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);}
+  /* Solid background patch below nav for iPhone home indicator area */
+  .mobile-nav::after{content:'';position:fixed;bottom:0;left:0;right:0;
+    height:env(safe-area-inset-bottom,0px);background:var(--bg2);z-index:199;}
   .rp-drawer-overlay,.sidebar-drawer-overlay{display:none;}
   .rp-drawer-overlay.open,.sidebar-drawer-overlay.open{display:block;}
   .modal{width:calc(100vw - 24px);max-height:92dvh;overflow-y:auto;}
@@ -1277,9 +1279,9 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
   .post-btn{padding:7px 14px;font-size:12px;}
   .mnav-item{padding:9px 4px 14px;font-size:10px;}
   .mnav-icon{font-size:17px;}
-  /* Auth modal — full width, centered, above mobile nav */
-  .modal-overlay{align-items:center;padding-bottom:80px;}
-  .modal{width:calc(100vw - 24px);padding:24px 20px;border-radius:16px;max-height:calc(100dvh - 120px);overflow-y:auto;}
+  /* Auth modal — full screen overlay, modal card above nav */
+  .modal-overlay{padding:16px 12px 90px 12px;}
+  .modal{width:100%;max-width:420px;padding:24px 20px;border-radius:16px;max-height:calc(100dvh - 120px);overflow-y:auto;}
   .modal-logo{font-size:20px;}
   /* Tour tooltip full-width */
   .tour-tooltip{width:calc(100vw - 32px);}
