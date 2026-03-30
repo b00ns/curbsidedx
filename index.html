@@ -1957,10 +1957,16 @@ const SUPABASE_URL_KEY='curbsidedx_supabase_url',SUPABASE_KEY_KEY='curbsidedx_su
 
 // Hardcoded credentials — anon key is safe to embed in client code
 const SUPABASE_URL='https://ebzuytnzbwmzrrspmmqr.supabase.co';
-const SUPABASE_ANON_KEY='sb_publishable_Fu_4FWDg-saPyORfkSPHyQ_Xx3I69ey';
+// IMPORTANT: This must be the JWT anon key from Supabase dashboard → Settings → API
+// It starts with "eyJ..." — NOT the "sb_publishable_" format
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVienV5dG56YndtenJyc3BtbXFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5ODU5MzIsImV4cCI6MjA4OTU2MTkzMn0.2W5wY7EOhaZGnYwvHxQF9H9NowiwRJ53tCvB2HIDeXw';
 
 function initSupabase(){
   try{
+    if(!SUPABASE_ANON_KEY||SUPABASE_ANON_KEY==='REPLACE_WITH_SUPABASE_JWT_ANON_KEY'||!SUPABASE_ANON_KEY.startsWith('eyJ')){
+      console.error('Invalid Supabase anon key — must be a JWT starting with eyJ');
+      return false;
+    }
     supabaseClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
     return true;
   }catch(e){
@@ -2611,8 +2617,15 @@ function mapDBResponse(row){return{id:row.id,ph:-1,name:row.author_name,spec:row
 async function loadCasesFromDB(){
   if(!supabaseClient)return;
   const{data:caseRows,error:caseError}=await supabaseClient.from('cases').select('*').order('created_at',{ascending:false}).limit(50);
-  if(caseError){console.error('loadCasesFromDB — cases error:',caseError);return;}
-  if(!caseRows){console.warn('loadCasesFromDB — no rows returned');return;}
+  if(caseError){
+    console.error('loadCasesFromDB — cases error:',caseError);
+    showToast('Failed to load cases: '+caseError.message,true);
+    return;
+  }
+  if(!caseRows||caseRows.length===0){
+    console.warn('loadCasesFromDB — no rows returned (RLS may be blocking reads)');
+    // Don't show toast here — could just be genuinely empty
+  }
   console.log('loadCasesFromDB — loaded',caseRows.length,'cases');
   const{data:responseRows,error:respError}=await supabaseClient.from('responses').select('*').order('created_at',{ascending:false});
   if(respError)console.warn('loadCasesFromDB — responses error:',respError);
