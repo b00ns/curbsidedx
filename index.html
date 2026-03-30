@@ -323,7 +323,7 @@ input::placeholder{color:var(--text3);}
 .toast-dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;}
 .toast-dot.error{background:var(--red);}
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);z-index:500;display:flex;align-items:center;justify-content:center;animation:fadein .2s ease;}
-.modal-overlay.hidden{display:none;}
+.modal-overlay.hidden{display:none!important;}
 @keyframes fadein{from{opacity:0;}to{opacity:1;}}
 .modal{background:var(--card);border:1px solid var(--border2);border-radius:18px;padding:32px;width:440px;max-width:calc(100vw - 32px);animation:slideUp .3s cubic-bezier(.4,0,.2,1);}
 @keyframes slideUp{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
@@ -1275,8 +1275,9 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
   .post-btn{padding:7px 14px;font-size:12px;}
   .mnav-item{padding:9px 4px 14px;font-size:10px;}
   .mnav-icon{font-size:17px;}
-  /* Auth modal full-width */
-  .modal{width:calc(100vw - 16px);padding:26px 20px;border-radius:16px;}
+  /* Auth modal — full width, centered, above mobile nav */
+  .modal-overlay{align-items:center;padding-bottom:80px;}
+  .modal{width:calc(100vw - 24px);padding:24px 20px;border-radius:16px;max-height:calc(100dvh - 120px);overflow-y:auto;}
   .modal-logo{font-size:20px;}
   /* Tour tooltip full-width */
   .tour-tooltip{width:calc(100vw - 32px);}
@@ -4867,37 +4868,43 @@ function toggleTheme(){
 // ══════════════════════════════════════════════
 (async function init(){
   initTheme();
-  const hasConfig = initSupabase();
-  if(!hasConfig){
+
+  // Always create the Supabase client directly here — don't rely on initSupabase
+  // This avoids any race condition with the CDN script
+  try{
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }catch(e){
+    console.error('Supabase client creation failed:', e);
     useDemoMode();
     seedDemoNotifications();
     updateNPINudge();
-  } else {
-    try{
-      const{data:{session},error}=await supabaseClient.auth.getSession();
-      if(!error && session && session.user){
-        currentUser=session.user;
-        await fetchProfile();
-        updateUserUI();
-        await loadCasesFromDB();
-        await loadRespondedCaseIds();
-        await loadSavedCaseIds();
-        await loadNotificationsFromDB();
-        subscribeToRealtime();
-        subscribeToNotifications();
-        renderFeed();
-        renderLeaderboard();
-        updateNPINudge();
-        checkAndShowWelcome();
-      } else {
-        showModal('auth-modal');
-        renderFeed();
-      }
-    }catch(e){
-      console.error('Session check failed:',e);
+    return;
+  }
+
+  try{
+    const{data:{session},error}=await supabaseClient.auth.getSession();
+    if(!error && session && session.user){
+      currentUser=session.user;
+      await fetchProfile();
+      updateUserUI();
+      await loadCasesFromDB();
+      await loadRespondedCaseIds();
+      await loadSavedCaseIds();
+      await loadNotificationsFromDB();
+      subscribeToRealtime();
+      subscribeToNotifications();
+      renderFeed();
+      renderLeaderboard();
+      updateNPINudge();
+      checkAndShowWelcome();
+    } else {
       showModal('auth-modal');
       renderFeed();
     }
+  }catch(e){
+    console.error('Session check failed:',e);
+    showModal('auth-modal');
+    renderFeed();
   }
 
   // Wire file input - simple direct approach
