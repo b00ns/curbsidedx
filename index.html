@@ -144,10 +144,7 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text);overflo
 .tag-ic{background:var(--accentbg);color:var(--accent);}
 .tag-hf{background:var(--tealbg);color:var(--teal);}
 .tag-gen{background:var(--amberbg);color:var(--amber);}
-.urgency-tag{display:inline-flex;align-items:center;font-size:10px;font-weight:600;padding:2px 8px;border-radius:999px;letter-spacing:.3px;text-transform:uppercase;}
-.urgency-high{background:var(--redbg);color:var(--red);}
-.urgency-med{background:var(--amberbg);color:var(--amber);}
-.urgency-low{background:var(--greenbg);color:var(--green);}
+
 .case-q{font-size:13px;color:var(--text);line-height:1.6;margin-bottom:12px;}
 .ecg-thumb{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);display:flex;align-items:center;padding:0;margin-bottom:12px;overflow:hidden;position:relative;}
 .ecg-thumb img{width:100%;height:auto;object-fit:contain;opacity:.95;display:block;}
@@ -360,7 +357,17 @@ input::placeholder{color:var(--text3);}
 .mobile-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--bg2);border-top:1px solid var(--border);z-index:100;padding:0 8px;}
 .mobile-nav-items{display:flex;align-items:stretch;}
 .mnav-item{flex:1;display:flex;flex-direction:column;align-items:center;padding:10px 4px 14px;font-size:9px;color:var(--text3);cursor:pointer;gap:4px;border-top:2px solid transparent;transition:all .15s;}
+.mnav-item:hover{color:var(--text2);}
 .mnav-item.active{color:var(--accent);border-top-color:var(--accent);}
+.mnav-post-btn .mnav-icon{
+  width:36px;height:36px;border-radius:50%;
+  background:var(--accent);color:white;
+  display:flex;align-items:center;justify-content:center;
+  font-size:20px;font-weight:400;line-height:1;
+  margin-top:-8px;
+  box-shadow:0 2px 10px rgba(37,99,235,.4);
+}
+.mnav-post-btn{color:var(--text3);border-top-color:transparent!important;}
 .mnav-icon{font-size:18px;}
 .rp-drawer-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;backdrop-filter:blur(4px);}
 .rp-drawer-overlay.open{display:block;}
@@ -374,25 +381,66 @@ input::placeholder{color:var(--text3);}
 .sidebar-drawer-overlay.open{display:block;}
 .sidebar-drawer{position:fixed;left:0;top:0;bottom:0;width:min(260px,80vw);background:var(--bg2);border-right:1px solid var(--border);z-index:201;display:flex;flex-direction:column;transform:translateX(-100%);transition:transform .3s cubic-bezier(.4,0,.2,1);}
 .sidebar-drawer.open{transform:translateX(0);}
+/* ══════════════════════════════════════════════
+   MOBILE OVERHAUL — comprehensive responsive
+   ══════════════════════════════════════════════ */
+/* Hidden on desktop — only shown inside @media(max-width:900px) */
+.mobile-filter-bar{display:none;}
 @media(max-width:900px){
   body{overflow:auto;}
-  .shell{grid-template-columns:1fr;grid-template-rows:auto 1fr;height:auto;min-height:100vh;padding-bottom:70px;}
+  .shell{display:flex;flex-direction:column;height:auto;min-height:100dvh;padding-bottom:68px;}
   .sidebar{display:none;}
   .right-panel{display:none;}
-  .main{min-height:calc(100vh - 70px);}
-  .topbar{padding:12px 16px;flex-wrap:wrap;gap:8px;}
-  .filter-tabs{order:3;flex:0 0 100%;}
-  .feed{padding:12px 16px;overflow-y:auto;}
-  .mobile-nav{display:block;}
+  .main{flex:1;min-height:0;display:flex;flex-direction:column;}
+  /* Topbar — compact, no wrap */
+  .topbar{padding:11px 16px;gap:8px;flex-wrap:nowrap;background:var(--bg2);position:sticky;top:0;z-index:50;border-bottom:1px solid var(--border);}
+  .topbar-title{font-size:15px;font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .filter-tabs{display:none;}/* moved to sticky sub-bar below */
+  .post-btn{display:none;}/* posting via bottom nav */
+  /* Sub-filter bar under topbar */
+  .mobile-filter-bar{display:flex;gap:4px;overflow-x:auto;padding:8px 16px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+  .mobile-filter-bar::-webkit-scrollbar{display:none;}
+  .mobile-filter-bar .ftab{white-space:nowrap;flex-shrink:0;font-size:12px;padding:5px 13px;}
+  /* Feed */
+  .feed{padding:12px 12px;gap:10px;overflow-y:auto;flex:1;}
+  /* Cards */
+  .case-card{padding:14px;border-radius:14px;}
+  .case-card:hover{transform:none;}
+  .case-header{margin-bottom:10px;gap:8px;}
+  .case-avatar{width:32px;height:32px;font-size:11px;flex-shrink:0;}
+  .case-author{font-size:13px;}
+  .case-sub{font-size:11px;}
+  .case-time{font-size:10px;}
+  .case-q{font-size:13px;line-height:1.6;margin-bottom:12px;}
+  .bar-label{width:110px;font-size:11.5px;}
+  .bar-pct{font-size:11px;width:32px;}
+  .bar-track{height:6px;}
+  .case-footer{padding-top:10px;}
+  .respond-btn{padding:7px 14px;font-size:12px;}
+  /* Bottom nav */
+  .mobile-nav{display:block;position:fixed;bottom:0;left:0;right:0;z-index:200;
+    background:var(--bg2);border-top:1px solid var(--border);
+    padding-bottom:env(safe-area-inset-bottom,0px);}
   .rp-drawer-overlay,.sidebar-drawer-overlay{display:none;}
   .rp-drawer-overlay.open,.sidebar-drawer-overlay.open{display:block;}
-  .modal{width:calc(100vw - 32px);max-height:90vh;overflow-y:auto;}
+  .modal{width:calc(100vw - 24px);max-height:92dvh;overflow-y:auto;}
+  /* Notifications panel full-width on mobile */
+  .notif-panel{width:calc(100vw - 20px);right:-4px;max-height:70dvh;}
 }
+
 @media(max-width:600px){
+  .topbar{padding:10px 14px;}
   .topbar-title{font-size:14px;}
-  .post-btn{padding:6px 12px;font-size:11px;}
-  .case-q{font-size:12px;}
-  .bar-label{width:100px;font-size:11px;}
+  .live-pill{font-size:10px;padding:3px 8px;gap:4px;}
+  .feed{padding:10px 10px;gap:8px;}
+  .case-card{padding:13px;border-radius:12px;}
+  .case-q{font-size:12.5px;}
+  .bar-label{width:95px;font-size:11px;}
+  .bar-row{gap:7px;}
+  .mnav-item{padding:9px 4px 14px;font-size:10px;}
+  .mnav-icon{font-size:17px;}
+  /* Safe area bottom */
+  .mobile-nav{padding-bottom:env(safe-area-inset-bottom,4px);}
 }
 
 /* ══════════════════════════════════════════════
@@ -550,17 +598,32 @@ input::placeholder{color:var(--text3);}
 
 /* Mobile case detail */
 @media(max-width:900px){
-  .cd-body{grid-template-columns:1fr;grid-template-rows:auto 1fr;}
-  .cd-left{border-right:none;border-bottom:1px solid var(--border);max-height:55vh;padding:18px 16px;}
-  .cd-right{min-height:45vh;}
-  .cd-header{padding:12px 16px;}
+  .case-detail-shell{max-width:100%;}
+  .cd-body{grid-template-columns:1fr;grid-template-rows:auto 1fr;overflow-y:auto;}
+  .cd-left{border-right:none;border-bottom:1px solid var(--border);max-height:none;padding:16px 14px;overflow-y:visible;}
+  .cd-right{min-height:auto;overflow-y:auto;}
+  .cd-header{padding:12px 14px;}
+  .cd-header-title{font-size:13px;}
+  .cd-back-btn{font-size:12px;padding:5px 10px;}
+  .cd-question-text{font-size:13px;line-height:1.65;}
+  .cd-question-block{padding:14px 16px;}
+  .cd-consensus-section{padding:16px 14px 12px;}
+  .cd-respond-section{padding:14px 14px;}
+  .cd-thread-section{padding:14px 14px;}
+  .cd-bar-label{font-size:12px;}
+  .cd-bar-track{width:70px;height:6px;}
+  .cd-bar-pct{font-size:12px;}
+  .cd-dx-option{padding:10px 12px;}
+  .cd-dx-opt-label{font-size:13px;}
+  .cd-submit-btn{padding:12px;font-size:13px;font-weight:600;border-radius:10px;position:sticky;bottom:0;z-index:2;}
 }
 @media(max-width:600px){
-  .cd-question-text{font-size:13px;}
-  .cd-bar-label{font-size:12px;}
-  .cd-consensus-section{padding:14px 16px;}
-  .cd-respond-section{padding:14px 16px;}
-  .cd-thread-section{padding:14px 16px;}
+  .cd-question-text{font-size:12.5px;}
+  .cd-bar-label{font-size:11.5px;}
+  .cd-consensus-section{padding:14px 12px 10px;}
+  .cd-respond-section{padding:12px 12px;}
+  .cd-thread-section{padding:12px 12px;}
+  .cd-resp-note{font-size:12px;}
 }
 /* ── IMAGE ZOOM LIGHTBOX ── */
 .img-zoom-overlay{
@@ -889,6 +952,22 @@ html[data-theme="light"] .ecg-thumb{background:var(--ecg-bg);}
 .cd-resolve-btn:hover{opacity:.9;}
 .cd-resolve-btn:disabled{opacity:.5;cursor:not-allowed;}
 
+/* Author action buttons in case detail header */
+.cd-author-btn{
+  display:flex;align-items:center;gap:5px;
+  background:var(--bg3);border:1px solid var(--border2);
+  border-radius:var(--r);color:var(--text2);
+  font-size:12px;font-weight:500;padding:5px 11px;
+  cursor:pointer;font-family:var(--font-sans);transition:all .15s;
+}
+.cd-author-btn:hover{background:var(--card2);color:var(--text);}
+.cd-delete-btn{color:var(--red)!important;border-color:rgba(239,68,68,.25)!important;background:var(--redbg)!important;}
+.cd-delete-btn:hover{background:rgba(239,68,68,.2)!important;}
+@media(max-width:600px){
+  .cd-author-btn span{display:none;}
+  .cd-author-btn{padding:5px 9px;}
+}
+
 /* Resolved state banner in detail overlay */
 .cd-resolved-banner{
   background:linear-gradient(135deg,var(--greenbg),rgba(34,197,94,.06));
@@ -902,8 +981,13 @@ html[data-theme="light"] .ecg-thumb{background:var(--ecg-bg);}
 @media(max-width:600px){
   .profile-edit-grid{grid-template-columns:1fr;}
   .profile-stats-row{grid-template-columns:repeat(3,1fr);}
-  .profile-hero{flex-direction:column;text-align:center;}
-  .profile-body{padding:18px 16px;}
+  .profile-hero{flex-direction:column;text-align:center;padding:16px;}
+  .profile-hero-badges{justify-content:center;}
+  .profile-body{padding:16px 14px;gap:16px;}
+  .profile-hero-name{font-size:18px;}
+  .profile-hero-spec{font-size:12px;}
+  .profile-stat-val{font-size:22px;}
+  .profile-stat-lbl{font-size:10px;}
 }
 
 /* ══════════════════════════════════════════════
@@ -1157,16 +1241,38 @@ html[data-theme="dark"] .theme-toggle-track{background:var(--accent);border-colo
   box-shadow:0 1px 3px rgba(0,0,0,.25);
 }
 html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
-/* Mobile refinements */
+/* Mobile refinements — polish pass */
 @media(max-width:900px){
-  .feed{padding:14px 16px;gap:10px;}
-  .case-card{padding:16px;}
+  .feed{padding:12px 12px;gap:10px;}
+  .case-card{padding:14px;border-radius:14px;}
+  .case-card:hover{transform:none;box-shadow:var(--shadow-card);}
+  .bar-label{width:115px;}
+  /* NPI nudge banner compact */
+  .npi-nudge-banner{padding:10px 14px;gap:8px;}
+  .npi-nudge-text{font-size:12px;}
+  /* Welcome modal */
+  .welcome-modal{padding:28px 22px;border-radius:16px;}
+  .welcome-headline{font-size:22px;}
+  /* Toast — bottom above nav */
+  .toast{bottom:80px;font-size:12px;}
 }
 @media(max-width:600px){
-  .topbar{padding:12px 16px;}
+  .topbar{padding:10px 14px;}
   .topbar-title{font-size:14px;}
+  .live-pill{font-size:10px;padding:3px 8px;gap:4px;}
   .post-btn{padding:7px 14px;font-size:12px;}
-  .mnav-item{padding:10px 4px 16px;font-size:10px;}
+  .mnav-item{padding:9px 4px 14px;font-size:10px;}
+  .mnav-icon{font-size:17px;}
+  /* Auth modal full-width */
+  .modal{width:calc(100vw - 16px);padding:26px 20px;border-radius:16px;}
+  .modal-logo{font-size:20px;}
+  /* Tour tooltip full-width */
+  .tour-tooltip{width:calc(100vw - 32px);}
+  /* NPI nudge wrap */
+  .npi-nudge-banner{flex-wrap:wrap;}
+  .npi-nudge-btn{width:100%;text-align:center;padding:7px;}
+  /* Toast */
+  .toast{left:12px;right:12px;bottom:76px;width:auto;border-radius:10px;}
 }
 </style>
 </head>
@@ -1288,15 +1394,30 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
 <div class="sidebar-drawer-overlay" id="sidebar-overlay" onclick="closeSidebarDrawer()"></div>
 <div class="sidebar-drawer" id="sidebar-drawer">
   <div class="logo-area"><div class="logo"><span class="logo-dot"></span>CurbsideDx</div><div class="logo-sub">"Life is a differential diagnosis"</div></div>
-  <div class="nav" id="mobile-nav-links">
-    <div class="nav-item" onclick="setNavView('feed',this);closeSidebarDrawer()"><span class="nav-icon">⚡</span> Live feed</div>
+  <div class="nav" id="mobile-nav-links" style="flex:1;overflow-y:auto;">
+    <div class="nav-item active" onclick="setNavView('feed',this);closeSidebarDrawer()"><span class="nav-icon">⚡</span> Live feed</div>
     <div class="nav-item" onclick="setNavView('mycases',this);closeSidebarDrawer()"><span class="nav-icon">📋</span> My cases</div>
     <div class="nav-item" onclick="setNavView('responded',this);closeSidebarDrawer()"><span class="nav-icon">💬</span> Responded</div>
     <div class="nav-item" onclick="setNavView('saved',this);closeSidebarDrawer()"><span class="nav-icon">★</span> Saved cases</div>
+    <div class="nav-section">Specialty</div>
+    <div class="nav-item" onclick="filterSpec('EP',this);closeSidebarDrawer()"><span class="nav-icon">〰</span> EP / Rhythm</div>
+    <div class="nav-item" onclick="filterSpec('IC',this);closeSidebarDrawer()"><span class="nav-icon">🫀</span> Interventional</div>
+    <div class="nav-item" onclick="filterSpec('HF',this);closeSidebarDrawer()"><span class="nav-icon">💧</span> Heart Failure</div>
+    <div class="nav-item" onclick="filterSpec('GEN',this);closeSidebarDrawer()"><span class="nav-icon">🩺</span> General Cards</div>
     <div class="nav-section">Help</div>
     <div class="nav-item" onclick="closeSidebarDrawer();startTour();" style="color:var(--text3);"><span class="nav-icon">🗺</span> Take the tour</div>
   </div>
-  <div class="sidebar-footer"><div class="user-row" id="mobile-user-row"></div></div>
+  <div style="padding:0 8px 4px;">
+    <button class="theme-toggle" onclick="toggleTheme()">
+      <span id="drawer-theme-icon">🌙</span>
+      <span id="drawer-theme-label">Dark mode</span>
+      <div class="theme-toggle-track"><div class="theme-toggle-thumb"></div></div>
+    </button>
+  </div>
+  <div class="sidebar-footer">
+    <div class="user-row" id="mobile-user-row" onclick="closeSidebarDrawer();openProfile();" style="cursor:pointer;">
+    </div>
+  </div>
 </div>
 
 <!-- MOBILE RIGHT PANEL DRAWER -->
@@ -1343,7 +1464,7 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
 
   <div class="main">
     <div class="topbar">
-      <button class="post-btn" style="display:none;background:var(--bg3);color:var(--text2);border:1px solid var(--border);padding:6px 10px;" id="hamburger-btn" onclick="openSidebarDrawer()">☰</button>
+      <button class="post-btn" style="background:var(--bg3);color:var(--text2);border:1px solid var(--border);padding:6px 10px;display:none;" id="hamburger-btn" onclick="openSidebarDrawer()">☰</button>
       <span class="topbar-title" id="topbar-title">Live feed</span>
       <div class="live-pill"><div class="pulse-dot"></div><span id="active-count">Physicians active</span></div>
       <div class="filter-tabs">
@@ -1372,6 +1493,13 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
           </div>
         </div>
       </div>
+    </div>
+    <!-- MOBILE FILTER BAR — shown only on mobile, scrollable tabs -->
+    <div class="mobile-filter-bar" id="mobile-filter-bar">
+      <div class="ftab active" onclick="setFilter('all',this);syncMobileFilter(this)">All</div>
+      <div class="ftab" onclick="setFilter('open',this);syncMobileFilter(this)">Open</div>
+      <div class="ftab" onclick="setFilter('closing',this);syncMobileFilter(this)">Closing</div>
+      <div class="ftab" onclick="setFilter('resolved',this);syncMobileFilter(this)">Resolved</div>
     </div>
     <!-- NPI NUDGE BANNER — shown to unverified users -->
     <div class="npi-nudge-banner" id="npi-nudge-banner" style="display:none;">
@@ -1434,8 +1562,8 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
 <nav class="mobile-nav">
   <div class="mobile-nav-items">
     <div class="mnav-item active" id="mnav-feed" onclick="mobileNav('feed',this)"><div class="mnav-icon">⚡</div>Feed</div>
-    <div class="mnav-item" id="mnav-post" onclick="mobileNav('post',this)"><div class="mnav-icon">＋</div>Post</div>
-    <div class="mnav-item" id="mnav-respond" onclick="mobileNav('respond',this)"><div class="mnav-icon">💬</div>Respond</div>
+    <div class="mnav-item" id="mnav-mycases" onclick="mobileNavView('mycases',this)"><div class="mnav-icon">📋</div>My Cases</div>
+    <div class="mnav-item mnav-post-btn" id="mnav-post" onclick="mobileNav('post',this)"><div class="mnav-icon" style="font-size:22px;font-weight:300;line-height:1;">＋</div>Post</div>
     <div class="mnav-item" id="mnav-stats" onclick="mobileNav('stats',this)"><div class="mnav-icon">📊</div>Stats</div>
     <div class="mnav-item" id="mnav-menu" onclick="openSidebarDrawer()"><div class="mnav-icon">☰</div>Menu</div>
   </div>
@@ -1582,11 +1710,22 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
 .post-modal-cancel{background:none;border:none;color:var(--text3);font-size:13px;cursor:pointer;font-family:var(--font-sans);}
 .post-modal-cancel:hover{color:var(--text);}
 @media(max-width:700px){
-  .post-modal-body{grid-template-columns:1fr;}
-  .post-modal{max-width:100%;border-radius:14px;}
-  .post-modal-header{padding:16px 20px;}
-  .post-modal-body{padding:18px 20px;}
-  .post-modal-footer{padding:14px 20px;}
+  .post-modal-overlay{padding:0;align-items:flex-end;}
+  .post-modal{
+    max-width:100%;border-radius:20px 20px 0 0;
+    max-height:96dvh;border-bottom:none;
+  }
+  .post-modal-header{padding:16px 18px;}
+  .post-modal-title{font-size:18px;}
+  .post-modal-body{
+    grid-template-columns:1fr;padding:16px 18px;gap:0;
+    max-height:calc(96dvh - 130px);overflow-y:auto;
+  }
+  .post-modal-col:last-child{margin-top:4px;}
+  .post-modal-footer{padding:12px 18px;padding-bottom:calc(12px + env(safe-area-inset-bottom,0px));}
+  .post-modal-footer .submit-case-btn{flex:1;padding:12px;font-size:14px;}
+  .section-label:first-child{margin-top:0;}
+  .window-btn{padding:8px 4px;font-size:12px;}
 }
 /* ── CASE WINDOW SELECTOR ── */
 .window-selector{display:flex;gap:6px;margin-top:4px;}
@@ -1661,7 +1800,6 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
         <div class="section-label">Classification</div>
         <div class="select-row">
           <select id="spec-select"><option value="">Specialty</option><option value="EP">EP / Rhythm</option><option value="IC">Interventional</option><option value="HF">Heart Failure</option><option value="GEN">General Cards</option></select>
-          <select id="urgency-select" onchange="syncWindowToUrgency(this.value)"><option value="">Urgency</option><option value="high">🔴 High</option><option value="med">🟡 Medium</option><option value="low">🟢 Elective</option></select>
         </div>
         <div class="section-label" style="margin-top:10px;">Response window</div>
         <div class="window-selector" id="window-selector">
@@ -1722,6 +1860,11 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
         <div class="cd-live-responses">
           <div class="cd-live-dot"></div>
           <span id="cd-resp-count-badge">0 responses</span>
+        </div>
+        <!-- Author-only controls — shown/hidden by renderCDAuthorControls() -->
+        <div id="cd-author-controls" style="display:none;align-items:center;gap:6px;">
+          <button class="cd-author-btn" id="cd-edit-btn" onclick="openEditCase()" title="Edit question">✏️ Edit</button>
+          <button class="cd-author-btn cd-delete-btn" id="cd-delete-btn" onclick="confirmDeleteCase()" title="Delete case">🗑</button>
         </div>
         <button class="bookmark-btn" id="cd-bookmark-btn" onclick="toggleSaveCurrent()" title="Save case" style="font-size:18px;color:var(--text3);">☆</button>
       </div>
@@ -1840,11 +1983,11 @@ function useDemoMode(){
   currentUser={email:'meslami@memcardio.com',id:'demo'};
   // Load demo cases only in demo mode
   cases=[
-    {id:1,spec:'EP',urgency:'high',author:'Dr. A. Chen',authorSpec:'EP · Stanford',authorInit:'AC',authorColor:'#a78bfa',authorNpiVerified:true,windowMs:6*60*60*1000,createdAt:_minsAgo(4),q:'70M with ESRD on HD presenting with palpitations. Wide complex tachycardia at 188 bpm. LBBB morphology. AV dissociation seen on telemetry. No prior cardiac history. K+ pending. What is your read and immediate management?',hasECG:true,ecgType:'Wide complex tach · V1',ecgImageUrl:null,ddx:['Monomorphic VT','SVT with aberrancy','Hyperkalemia WCT','Brugada-related'],votes:[72,17,8,3],resolvedDx:null,resolvedNote:null,responses:[{ph:0,dx:'Monomorphic VT',conf:5,note:'AV dissociation seals it — VT until proven otherwise. Get K+ stat. Amio or cardiovert if unstable.',time:'3 min ago'},{ph:1,dx:'Monomorphic VT',conf:4,note:'Agree. ESRD adds hyperK mimicry but dissociation argues against sine-wave morphology.',time:'2 min ago'},{ph:2,dx:'SVT with aberrancy',conf:2,note:'Would not rule out SVT without old ECG. Prior LBBB on file?',time:'1 min ago'}]},
-    {id:2,spec:'IC',urgency:'med',author:'Dr. R. Patel',authorSpec:'IC · Cedars',authorInit:'RP',authorColor:'#3b82f6',authorNpiVerified:true,windowMs:6*60*60*1000,createdAt:_minsAgo(18),q:'Post-STEMI day 2, inferior MI. New 2:1 block, PR prolongation on telemetry. Currently in sinus with temp pacing via RV at 60 bpm. Is this likely to be permanent? Watch for how long before recommending PPM?',hasECG:true,ecgType:'12-lead · Post-STEMI',ecgImageUrl:null,ddx:['Likely transient — watch','Will need permanent pacing','Uncertain — needs EP eval'],votes:[61,26,13],resolvedDx:null,resolvedNote:null,responses:[{ph:3,dx:'Likely transient — watch',conf:4,note:'Inferior MI block is usually AV nodal and reversible. Give it 5-7 days.',time:'15 min ago'},{ph:4,dx:'Likely transient — watch',conf:3,note:'RCA territory almost always recovers.',time:'10 min ago'}]},
-    {id:3,spec:'HF',urgency:'low',author:'Dr. S. Kim',authorSpec:'HF · UCLA',authorInit:'SK',authorColor:'#2dd4bf',authorNpiVerified:true,windowMs:24*60*60*1000,createdAt:_hrsAgo(4.5),q:'60F, EF 30%, on GDMT. New AF with RVR at 130s. Hemodynamically stable, BP 108/72. Rate vs rhythm control in the setting of reduced EF?',hasECG:false,ecgImageUrl:null,ddx:['Rhythm control (cardiovert/ablate)','Rate control first','Depends on AF duration'],votes:[55,28,17],resolvedDx:null,resolvedNote:null,responses:[{ph:5,dx:'Rhythm control (cardiovert/ablate)',conf:5,note:'CASTLE-AF changed my practice. AF ablation in HFrEF improves EF and outcomes.',time:'4 hr ago'},{ph:0,dx:'Rate control first',conf:3,note:'With BP 108 I want rate controlled before adding AADs.',time:'4 hr ago'}]},
-    {id:4,spec:'EP',urgency:'high',author:'Dr. M. Torres',authorSpec:'EP · MGH',authorInit:'MT',authorColor:'#ec4899',authorNpiVerified:true,windowMs:6*60*60*1000,createdAt:_hrsAgo(5.2),q:'45M, no PMH. Syncope x1, NSVT on Holter (8-beat run at 180 bpm, RBBB morphology, inferior axis). Echo normal EF. ICD or no ICD? ARVC on the differential.',hasECG:true,ecgType:'Holter strip · NSVT run',ecgImageUrl:null,ddx:['ICD implant now','Further workup first (MRI/EPS)','Monitor — no device yet'],votes:[20,68,12],resolvedDx:null,resolvedNote:null,responses:[{ph:1,dx:'Further workup first (MRI/EPS)',conf:5,note:'Cardiac MRI is mandatory before any device decision.',time:'5 hr ago'},{ph:2,dx:'Further workup first (MRI/EPS)',conf:5,note:'EPS in ARVC phenotype is critical. Inducible sustained VT = ICD.',time:'5 hr ago'}]},
-    {id:5,spec:'GEN',urgency:'low',author:'Dr. F. Okonkwo',authorSpec:'Cards · Emory',authorInit:'FO',authorColor:'#22c55e',authorNpiVerified:true,windowMs:7*24*60*60*1000,createdAt:_hrsAgo(7),q:'55F, new LBBB on routine ECG, asymptomatic, EF unknown. Cardiology referral or echo first?',hasECG:false,ecgImageUrl:null,ddx:['Echo first then refer','Direct cardiology referral','Stress test first','Reassure, no workup'],votes:[58,27,12,3],resolvedDx:'Echo first then refer',resolvedNote:'Echo revealed EF 35% — sent to heart failure clinic same day. Always echo a new LBBB.',responses:[{ph:3,dx:'Echo first then refer',conf:4,note:'New LBBB can be presenting sign of CMP or ischemic disease. Echo always first.',time:'6 hr ago'}]},
+    {id:1,spec:'EP',author:'Dr. A. Chen',authorSpec:'EP · Stanford',authorInit:'AC',authorColor:'#a78bfa',authorNpiVerified:true,windowMs:6*60*60*1000,createdAt:_minsAgo(4),q:'70M with ESRD on HD presenting with palpitations. Wide complex tachycardia at 188 bpm. LBBB morphology. AV dissociation seen on telemetry. No prior cardiac history. K+ pending. What is your read and immediate management?',hasECG:true,ecgType:'Wide complex tach · V1',ecgImageUrl:null,ddx:['Monomorphic VT','SVT with aberrancy','Hyperkalemia WCT','Brugada-related'],votes:[72,17,8,3],resolvedDx:null,resolvedNote:null,responses:[{ph:0,dx:'Monomorphic VT',conf:5,note:'AV dissociation seals it — VT until proven otherwise. Get K+ stat. Amio or cardiovert if unstable.',time:'3 min ago'},{ph:1,dx:'Monomorphic VT',conf:4,note:'Agree. ESRD adds hyperK mimicry but dissociation argues against sine-wave morphology.',time:'2 min ago'},{ph:2,dx:'SVT with aberrancy',conf:2,note:'Would not rule out SVT without old ECG. Prior LBBB on file?',time:'1 min ago'}]},
+    {id:2,spec:'IC',author:'Dr. R. Patel',authorSpec:'IC · Cedars',authorInit:'RP',authorColor:'#3b82f6',authorNpiVerified:true,windowMs:6*60*60*1000,createdAt:_minsAgo(18),q:'Post-STEMI day 2, inferior MI. New 2:1 block, PR prolongation on telemetry. Currently in sinus with temp pacing via RV at 60 bpm. Is this likely to be permanent? Watch for how long before recommending PPM?',hasECG:true,ecgType:'12-lead · Post-STEMI',ecgImageUrl:null,ddx:['Likely transient — watch','Will need permanent pacing','Uncertain — needs EP eval'],votes:[61,26,13],resolvedDx:null,resolvedNote:null,responses:[{ph:3,dx:'Likely transient — watch',conf:4,note:'Inferior MI block is usually AV nodal and reversible. Give it 5-7 days.',time:'15 min ago'},{ph:4,dx:'Likely transient — watch',conf:3,note:'RCA territory almost always recovers.',time:'10 min ago'}]},
+    {id:3,spec:'HF',author:'Dr. S. Kim',authorSpec:'HF · UCLA',authorInit:'SK',authorColor:'#2dd4bf',authorNpiVerified:true,windowMs:24*60*60*1000,createdAt:_hrsAgo(4.5),q:'60F, EF 30%, on GDMT. New AF with RVR at 130s. Hemodynamically stable, BP 108/72. Rate vs rhythm control in the setting of reduced EF?',hasECG:false,ecgImageUrl:null,ddx:['Rhythm control (cardiovert/ablate)','Rate control first','Depends on AF duration'],votes:[55,28,17],resolvedDx:null,resolvedNote:null,responses:[{ph:5,dx:'Rhythm control (cardiovert/ablate)',conf:5,note:'CASTLE-AF changed my practice. AF ablation in HFrEF improves EF and outcomes.',time:'4 hr ago'},{ph:0,dx:'Rate control first',conf:3,note:'With BP 108 I want rate controlled before adding AADs.',time:'4 hr ago'}]},
+    {id:4,spec:'EP',author:'Dr. M. Torres',authorSpec:'EP · MGH',authorInit:'MT',authorColor:'#ec4899',authorNpiVerified:true,windowMs:6*60*60*1000,createdAt:_hrsAgo(5.2),q:'45M, no PMH. Syncope x1, NSVT on Holter (8-beat run at 180 bpm, RBBB morphology, inferior axis). Echo normal EF. ICD or no ICD? ARVC on the differential.',hasECG:true,ecgType:'Holter strip · NSVT run',ecgImageUrl:null,ddx:['ICD implant now','Further workup first (MRI/EPS)','Monitor — no device yet'],votes:[20,68,12],resolvedDx:null,resolvedNote:null,responses:[{ph:1,dx:'Further workup first (MRI/EPS)',conf:5,note:'Cardiac MRI is mandatory before any device decision.',time:'5 hr ago'},{ph:2,dx:'Further workup first (MRI/EPS)',conf:5,note:'EPS in ARVC phenotype is critical. Inducible sustained VT = ICD.',time:'5 hr ago'}]},
+    {id:5,spec:'GEN',author:'Dr. F. Okonkwo',authorSpec:'Cards · Emory',authorInit:'FO',authorColor:'#22c55e',authorNpiVerified:true,windowMs:7*24*60*60*1000,createdAt:_hrsAgo(7),q:'55F, new LBBB on routine ECG, asymptomatic, EF unknown. Cardiology referral or echo first?',hasECG:false,ecgImageUrl:null,ddx:['Echo first then refer','Direct cardiology referral','Stress test first','Reassure, no workup'],votes:[58,27,12,3],resolvedDx:'Echo first then refer',resolvedNote:'Echo revealed EF 35% — sent to heart failure clinic same day. Always echo a new LBBB.',responses:[{ph:3,dx:'Echo first then refer',conf:4,note:'New LBBB can be presenting sign of CMP or ischemic disease. Echo always first.',time:'6 hr ago'}]},
   ];
   updateUserUI();
   renderFeed();
@@ -1959,11 +2102,22 @@ function showAuthError(form,msg){
 function updateUserUI(){
   const p=currentProfile;if(!p)return;
   const initials=((p.first_name||'?')[0]+(p.last_name||'?')[0]).toUpperCase();
-  document.getElementById('sidebar-name').textContent=`Dr. ${p.first_name?p.first_name[0]+'. ':''}${p.last_name||''}`;
-  document.getElementById('sidebar-role').textContent=`${p.specialty||'—'} · ${p.institution||'—'}`;
+  const name=`Dr. ${p.first_name?p.first_name[0]+'. ':''}${p.last_name||''}`;
+  const role=`${p.specialty||'—'} · ${p.institution||'—'}`;
+  const badgeHtml=p.npi_verified?'<div class="verified-badge">MD ✓</div>':'<div class="unverified-badge" onclick="showNPIPanel()">Verify NPI</div>';
+  // Desktop sidebar
+  document.getElementById('sidebar-name').textContent=name;
+  document.getElementById('sidebar-role').textContent=role;
   document.querySelector('#sidebar-user-row .avatar').textContent=initials;
-  const badge=document.getElementById('sidebar-badge');
-  badge.innerHTML=p.npi_verified?'<div class="verified-badge">MD ✓</div>':'<div class="unverified-badge" onclick="showNPIPanel()">Verify NPI</div>';
+  document.getElementById('sidebar-badge').innerHTML=badgeHtml;
+  // Mobile drawer user row
+  const mobileRow=document.getElementById('mobile-user-row');
+  if(mobileRow){
+    mobileRow.innerHTML=`
+      <div class="avatar" style="background:linear-gradient(135deg,#3b82f6,#8b5cf6)">${initials}</div>
+      <div class="user-info"><div class="name">${name}</div><div class="role">${role}</div></div>
+      <div>${p.npi_verified?'<div class="verified-badge">MD ✓</div>':'<div class="unverified-badge">Verify</div>'}</div>`;
+  }
   const npiPanel=document.getElementById('npi-panel');
   if(npiPanel)npiPanel.style.display=p.npi_verified?'none':'block';
   updateNPINudge();
@@ -2374,9 +2528,19 @@ async function uploadToStorage(file){
 
     if(error){
       console.error('Storage error:', JSON.stringify(error));
-      setScanBadge('✗ Upload failed: '+error.message.substring(0,40),'phi-found');
-      showToast('Upload failed: '+error.message.substring(0,60), true);
-      if(!isVid) uploadedImageUrl=uploadedImageDataUrl;
+      const errMsg=error.message||'Unknown storage error';
+      setScanBadge('✗ Upload failed — '+errMsg.substring(0,50),'phi-found');
+      showToast('Upload failed: '+errMsg.substring(0,80), true);
+      if(!isVid){
+        uploadedImageUrl=uploadedImageDataUrl;
+      } else {
+        // Mark zone as error so it's obvious before submit
+        const zone=document.getElementById('upload-zone');
+        if(zone){zone.classList.remove('has-file');zone.classList.add('phi-error');}
+        document.getElementById('uz-icon').textContent='✗';
+        document.getElementById('uz-text').textContent='Upload failed — tap to retry';
+        uploadedVideoUrl=null;
+      }
       return;
     }
 
@@ -2395,8 +2559,16 @@ async function uploadToStorage(file){
   }catch(e){
     console.error('Upload exception:', e.message);
     setScanBadge('✗ '+e.message.substring(0,50),'phi-found');
-    showToast('Upload error: '+e.message.substring(0,60), true);
-    if(!uploadedIsVideo) uploadedImageUrl=uploadedImageDataUrl;
+    showToast('Upload error: '+e.message.substring(0,80), true);
+    if(!uploadedIsVideo){
+      uploadedImageUrl=uploadedImageDataUrl;
+    } else {
+      const zone=document.getElementById('upload-zone');
+      if(zone){zone.classList.remove('has-file');zone.classList.add('phi-error');}
+      document.getElementById('uz-icon').textContent='✗';
+      document.getElementById('uz-text').textContent='Upload failed — tap to retry';
+      uploadedVideoUrl=null;
+    }
   }
 }
 
@@ -2420,7 +2592,7 @@ function mapDBCase(row){
   let windowMs=6*60*60*1000;
   if(createdAt&&expiresAt){const diff=new Date(expiresAt)-new Date(createdAt);if(diff>0)windowMs=diff;}
   return{
-  id:row.id,spec:row.specialty,urgency:row.urgency,
+  id:row.id,spec:row.specialty,
   author:row.author_name,authorSpec:row.author_spec,authorInit:row.author_initials,
   authorColor:row.author_color||'#3b82f6',authorId:row.author_id,
   authorNpiVerified:row.author_npi_verified||false,
@@ -2455,13 +2627,13 @@ async function persistCase(caseData){
     author_id:currentUser.id,author_name:caseData.author,author_spec:caseData.authorSpec,
     author_initials:caseData.authorInit,author_color:caseData.authorColor,
     author_npi_verified:currentProfile?.npi_verified||false,
-    specialty:caseData.spec,urgency:caseData.urgency,question:caseData.q,
+    specialty:caseData.spec,question:caseData.q,
     ddx:caseData.ddx,votes:caseData.votes,total_votes:0,
     ecg_image_url:caseData.ecgImageUrl||null,ecg_label:caseData.ecgType||null,
     video_url:caseData.videoUrl||null,
     status:'open',expires_at:expiresAt,resolved_dx:null,resolved_note:null
   }).select().single();
-  if(error){console.error('persistCase error:',error);return null;}return data;
+  if(error){console.error('persistCase error:',error);throw new Error(error.message||'Database error saving case');}return data;
 }
 async function persistResponse(caseId,dx,conf,note){
   if(!supabaseClient||!currentUser||!currentProfile)return;
@@ -2629,8 +2801,6 @@ function renderFeed(){
     div.style.animationDelay=(i*.05)+'s';
     div.onclick=()=>openCaseDetail(c.id);
     const tagClass={EP:'tag-ep',IC:'tag-ic',HF:'tag-hf',GEN:'tag-gen'}[c.spec]||'tag-gen';
-    const urgClass={high:'urgency-high',med:'urgency-med',low:'urgency-low'}[c.urgency];
-    const urgLabel={high:'Urgent',med:'Semi-urgent',low:'Elective'}[c.urgency];
     const total=c.votes.reduce((a,b)=>a+b,0);
     const pcts=largestRemainder(c.votes,total),maxV=Math.max(...c.votes);
     const isSaved=savedCaseIds.has(c.id);
@@ -2672,7 +2842,7 @@ function renderFeed(){
         <div class="case-time">${formatCaseTime(c)}</div>
         <button class="bookmark-btn${isSaved?' saved':''}" data-cid="${c.id}" onclick="toggleSave(${c.id},event)" title="${isSaved?'Remove bookmark':'Save case'}">${isSaved?'★':'☆'}</button>
       </div>
-      <div style="margin-bottom:10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;"><span class="spec-tag ${tagClass}">${c.spec}</span><span class="urgency-tag ${urgClass}">${urgLabel}</span>${countdownHtml}</div>
+      <div style="margin-bottom:10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;"><span class="spec-tag ${tagClass}">${c.spec}</span>${countdownHtml}</div>
       ${viewExtra?`<div style="margin-bottom:10px;">${viewExtra}</div>`:''}
       ${resolvedBanner}
       <div class="case-q">${c.q}</div>
@@ -2794,72 +2964,101 @@ async function submitCase(){
   // PHI scan only hard-blocks if image flagged AND HIPAA cert not checked AND no override
   // Since HIPAA cert IS checked at this point, we warn but don't block
   if(uploadedFile&&!phiScanPassed&&phiFindings.length>0){
-    // Show warning but allow proceed since physician certified HIPAA compliance
     console.warn('PHI findings present but physician certified HIPAA compliance — proceeding');
     phiScanPassed=true;
   }
 
   const spec=document.getElementById('spec-select').value||'GEN';
-  const urgency=document.getElementById('urgency-select').value||'med';
   const activeWindowBtn=document.querySelector('.window-btn.active');
   const windowHours=parseInt(activeWindowBtn?.dataset.hours||'6');
   const windowMs=windowHours*60*60*1000;
   const p=currentProfile;
-  const author=p?`Dr. ${p.first_name?p.first_name[0]+'. ':''}${p.last_name||''}`:'Dr. Eslami';
+  const author=p?`Dr. ${p.first_name?p.first_name[0]+'. ':''}${p.last_name||''}`:'Dr. Lee';
   const authorSpec=p?`${p.specialty||'Cards'} · ${p.institution||''}`:'EP · Long Beach';
-  const authorInit=p?((p.first_name||'M')[0]+(p.last_name||'E')[0]).toUpperCase():'ME';
+  const authorInit=p?((p.first_name||'M')[0]+(p.last_name||'L')[0]).toUpperCase():'ML';
 
-  const btn=document.getElementById('submit-case-btn');btn.disabled=true;btn.textContent='Posting…';
+  const btn=document.getElementById('submit-case-btn');
+  btn.disabled=true;btn.textContent='Posting…';
 
-  // If not yet uploaded to storage, do it now
-  if(uploadedFile&&phiScanPassed){
-    if(uploadedIsVideo&&!uploadedVideoUrl) await uploadToStorage(uploadedFile);
-    else if(!uploadedIsVideo&&!uploadedImageUrl) await uploadToStorage(uploadedFileStripped||uploadedFile);
+  try {
+    // Ensure file is uploaded to storage before persisting
+    if(uploadedFile&&phiScanPassed){
+      if(uploadedIsVideo&&!uploadedVideoUrl){
+        // Video didn't upload on file-select (or failed) — retry now
+        showToast('Uploading video…');
+        await uploadToStorage(uploadedFile);
+        // After retry, if still no URL, abort with clear message
+        if(!uploadedVideoUrl){
+          throw new Error('Video upload failed. Please check your connection and try again, or remove the video and repost.');
+        }
+      } else if(!uploadedIsVideo&&!uploadedImageUrl){
+        await uploadToStorage(uploadedFileStripped||uploadedFile);
+      }
+    }
+
+    const finalEcgUrl=uploadedIsVideo?null:uploadedImageUrl;
+    const finalVideoUrl=uploadedIsVideo?uploadedVideoUrl:null;
+
+    const newCase={
+      id:cases.length+1+Date.now(),spec,author,authorSpec,authorInit,
+      authorColor:'#3b82f6',
+      authorId:currentUser?.id||'demo',
+      authorNpiVerified:currentProfile?.npi_verified||false,
+      windowMs,
+      createdAt:new Date().toISOString(),time:'just now',q,
+      hasECG:!!uploadedFile,
+      ecgImageUrl:finalEcgUrl,
+      videoUrl:finalVideoUrl,
+      isVideo:uploadedIsVideo,
+      ecgType:uploadedFile?uploadedFile.name.split('.')[0]:null,
+      ddx,votes:ddx.map(()=>0),resolvedDx:null,resolvedNote:null,status:'open',responses:[]
+    };
+
+    if(supabaseClient&&currentUser){
+      const saved=await persistCase(newCase);
+      if(saved){
+        newCase.id=saved.id;
+      } else {
+        // persistCase returned null — log but still show locally so user isn't stuck
+        console.warn('persistCase returned null — case saved locally only');
+      }
+    }
+
+    cases.unshift(newCase);
+    myCases++;
+    document.getElementById('s-cases').textContent=myCases;
+
+    // Reset form
+    document.getElementById('q-text').value='';
+    document.getElementById('spec-select').value='';
+    document.querySelectorAll('#dx-inputs input[type=text]').forEach(i=>i.value='');
+    document.getElementById('ai-ddx-btn').disabled=false;
+    document.getElementById('ai-ddx-loading').classList.remove('show');
+    document.getElementById('deident-check').checked=false;
+    updateWindowHint();
+    uploadedFile=null;uploadedFileStripped=null;uploadedImageUrl=null;uploadedImageDataUrl=null;
+    uploadedVideoUrl=null;uploadedIsVideo=false;
+    phiScanPassed=false;phiFindings=[];
+    document.getElementById('upload-zone').classList.remove('has-file','uploading','phi-error');
+    document.getElementById('uz-icon').textContent='⊕';
+    document.getElementById('uz-text').textContent='ECG, pacemaker report, telemetry strip, or angiogram clip';
+    document.getElementById('upload-preview').style.display='none';
+    const vp=document.getElementById('video-preview');if(vp){vp.style.display='none';vp.src='';}
+    const vw=document.getElementById('phi-video-warning');if(vw)vw.classList.remove('show');
+    document.getElementById('phi-scan-status').innerHTML='';
+    hidePHIAlert();
+
+    renderFeed();
+    closePostModal();
+    showToast('Case posted — community will respond shortly');
+
+  } catch(err) {
+    console.error('submitCase error:', err);
+    showToast('Error posting case: '+(err.message||'unknown error')+'. Please try again.', true);
+  } finally {
+    btn.disabled=false;
+    btn.textContent='Submit to community →';
   }
-
-  const finalEcgUrl=uploadedIsVideo?null:uploadedImageUrl;
-  const finalVideoUrl=uploadedIsVideo?uploadedVideoUrl:null;
-
-  const newCase={id:cases.length+1+Date.now(),spec,urgency,author,authorSpec,authorInit,authorColor:'#3b82f6',
-    authorId:currentUser?.id||'demo',
-    authorNpiVerified:currentProfile?.npi_verified||false,
-    windowMs,
-    createdAt:new Date().toISOString(),time:'just now',q,
-    hasECG:!!uploadedFile,
-    ecgImageUrl:finalEcgUrl,
-    videoUrl:finalVideoUrl,
-    isVideo:uploadedIsVideo,
-    ecgType:uploadedFile?uploadedFile.name.split('.')[0]:null,
-    ddx,votes:ddx.map(()=>0),resolvedDx:null,resolvedNote:null,status:'open',responses:[]};
-  if(supabaseClient&&currentUser){const saved=await persistCase(newCase);if(saved)newCase.id=saved.id;}
-  cases.unshift(newCase);myCases++;document.getElementById('s-cases').textContent=myCases;
-
-  // Reset
-  document.getElementById('q-text').value='';
-  document.getElementById('spec-select').value='';
-  document.getElementById('urgency-select').value='';
-  document.querySelectorAll('#dx-inputs input[type=text]').forEach(i=>i.value='');
-  document.getElementById('ai-ddx-btn').disabled=false;
-  document.getElementById('ai-ddx-loading').classList.remove('show');
-  document.getElementById('deident-check').checked=false;
-  const winSel=document.getElementById('window-select');
-  if(winSel)winSel.value='21600000';
-  updateWindowHint();
-  uploadedFile=null;uploadedFileStripped=null;uploadedImageUrl=null;uploadedImageDataUrl=null;
-  uploadedVideoUrl=null;uploadedIsVideo=false;
-  phiScanPassed=false;phiFindings=[];
-  document.getElementById('upload-zone').classList.remove('has-file','uploading','phi-error');
-  document.getElementById('uz-icon').textContent='⊕';
-  document.getElementById('uz-text').textContent='ECG, pacemaker report, telemetry strip, or angiogram clip';
-  document.getElementById('upload-preview').style.display='none';
-  const vp=document.getElementById('video-preview');if(vp){vp.style.display='none';vp.src='';}
-  const vw=document.getElementById('phi-video-warning');if(vw)vw.classList.remove('show');
-  document.getElementById('phi-scan-status').innerHTML='';
-  hidePHIAlert();
-  btn.disabled=false;btn.textContent='Submit to community →';
-  renderFeed();
-  closePostModal();
-  showToast('Case posted — community will respond shortly');
 }
 
 function addDxInput(){const c=document.getElementById('dx-inputs'),r=document.createElement('div');r.className='dx-input-row';r.innerHTML='<input type="text" placeholder="Add diagnosis..."><button class="remove-btn" onclick="removeDx(this)">×</button>';c.appendChild(r);}
@@ -2892,13 +3091,7 @@ function updateWindowHint(){
   const hint=document.getElementById('window-hint');
   if(hint) hint.textContent=WINDOW_HINTS[hours]||`Closes in ${hours} hours`;
 }
-const URGENCY_WINDOW_MAP={high:2, med:6, low:24};
-function syncWindowToUrgency(urgency){
-  const suggestedHours=URGENCY_WINDOW_MAP[urgency];
-  if(!suggestedHours)return;
-  const targetBtn=document.querySelector(`.window-btn[data-hours="${suggestedHours}"]`);
-  if(targetBtn) selectWindow(suggestedHours, targetBtn);
-}
+
 
 // ══════════════════════════════════════════════
 // NAVIGATION
@@ -2906,7 +3099,23 @@ function syncWindowToUrgency(urgency){
 let currentView='feed'; // 'feed' | 'mycases' | 'responded' | 'saved'
 let respondedCaseIds=new Set(); // track which cases current user has responded to
 
-function setFilter(f,el){currentFilter=f;document.querySelectorAll('.ftab').forEach(t=>t.classList.remove('active'));el.classList.add('active');renderFeed();}
+function setFilter(f,el){
+  currentFilter=f;
+  // Sync desktop filter tabs
+  document.querySelectorAll('.filter-tabs .ftab').forEach(t=>t.classList.remove('active'));
+  // Sync mobile filter bar tabs
+  document.querySelectorAll('.mobile-filter-bar .ftab').forEach(t=>t.classList.remove('active'));
+  if(el) el.classList.add('active');
+  renderFeed();
+}
+function syncMobileFilter(el){
+  // Also mark matching desktop tab active
+  const text=el.textContent.trim();
+  document.querySelectorAll('.filter-tabs .ftab').forEach(t=>{
+    if(t.textContent.trim().startsWith(text.substring(0,5))) t.classList.add('active');
+    else t.classList.remove('active');
+  });
+}
 
 function filterSpec(s,el){
   currentSpec=(currentSpec===s)?null:s;
@@ -2950,8 +3159,11 @@ function updateTopbarTitle(){
   if(el) el.textContent=titles[currentView]||'Live feed';
   const livePill=document.querySelector('.live-pill');
   const filterTabs=document.querySelector('.filter-tabs');
-  if(livePill) livePill.style.display=currentView==='feed'?'flex':'none';
-  if(filterTabs) filterTabs.style.display=currentView==='feed'?'flex':'none';
+  const mobileFilterBar=document.getElementById('mobile-filter-bar');
+  const isFeed=currentView==='feed';
+  if(livePill) livePill.style.display=isFeed?'flex':'none';
+  if(filterTabs) filterTabs.style.display=isFeed?'flex':'none';
+  if(mobileFilterBar) mobileFilterBar.style.display=isFeed&&window.innerWidth<=900?'flex':'none';
 }
 
 function updateSpecCounts(){
@@ -3013,8 +3225,23 @@ function mobileNav(tab,el){
   document.querySelectorAll('.mnav-item').forEach(i=>i.classList.remove('active'));
   el.classList.add('active');
   if(tab==='feed'){closeRPDrawer();return;}
-  if(tab==='post'){openPostModal();return;}
+  if(tab==='post'){
+    // Don't keep post highlighted — return to feed highlight
+    setTimeout(()=>{
+      document.querySelectorAll('.mnav-item').forEach(i=>i.classList.remove('active'));
+      document.getElementById('mnav-feed').classList.add('active');
+    }, 300);
+    openPostModal();
+    return;
+  }
   openRPDrawer(tab);
+}
+
+function mobileNavView(view, el){
+  document.querySelectorAll('.mnav-item').forEach(i=>i.classList.remove('active'));
+  el.classList.add('active');
+  setNavView(view, null);
+  closeRPDrawer();
 }
 
 function openRPDrawer(tab){
@@ -3365,7 +3592,7 @@ function openCaseDetail(id){
   cdCaseId=id; cdSelectedDx=null; cdSelectedConf=0;
 
   // Header
-  document.getElementById('cd-header-title').textContent=c.author+' · '+c.spec+' · '+{high:'Urgent',med:'Semi-urgent',low:'Elective'}[c.urgency];
+  document.getElementById('cd-header-title').textContent=c.author+' · '+c.spec;
 
   // Poster row
   const av=document.getElementById('cd-avatar');
@@ -3384,12 +3611,10 @@ function openCaseDetail(id){
 
   // Tags
   const tagClass={EP:'tag-ep',IC:'tag-ic',HF:'tag-hf',GEN:'tag-gen'}[c.spec]||'tag-gen';
-  const urgClass={high:'urgency-high',med:'urgency-med',low:'urgency-low'}[c.urgency];
-  const urgLabel={high:'🔴 Urgent',med:'🟡 Semi-urgent',low:'🟢 Elective'}[c.urgency];
   const cdWindowMs=c.windowMs||6*60*60*1000;
   const cdWindowLabel=cdWindowMs<=2*60*60*1000?'2h window':cdWindowMs<=6*60*60*1000?'6h window':cdWindowMs<=24*60*60*1000?'24h window':'7-day window';
   document.getElementById('cd-tags-row').innerHTML=
-    `<span class="spec-tag ${tagClass}">${c.spec}</span><span class="urgency-tag ${urgClass}">${urgLabel}</span><span style="font-size:10px;color:var(--text3);background:var(--bg3);border:1px solid var(--border);padding:2px 8px;border-radius:999px;">⏳ ${cdWindowLabel}</span>`;
+    `<span class="spec-tag ${tagClass}">${c.spec}</span><span style="font-size:10px;color:var(--text3);background:var(--bg3);border:1px solid var(--border);padding:2px 8px;border-radius:999px;">⏳ ${cdWindowLabel}</span>`;
 
   // Question
   document.getElementById('cd-question-text').textContent=c.q;
@@ -3450,6 +3675,7 @@ function openCaseDetail(id){
   renderCDRespondSection(c);
   renderCDThread(c);
   renderCDResolveSection(c);
+  renderCDAuthorControls(c);
   const bmBtn=document.getElementById('cd-bookmark-btn');
   if(bmBtn){bmBtn.textContent=savedCaseIds.has(id)?'★':'☆';bmBtn.classList.toggle('saved',savedCaseIds.has(id));}
 
@@ -3705,6 +3931,139 @@ async function submitCaseResolution(){
 }
 
 // ══════════════════════════════════════════════
+// AUTHOR CONTROLS — Edit & Delete
+// ══════════════════════════════════════════════
+function renderCDAuthorControls(c){
+  const ctrl=document.getElementById('cd-author-controls');
+  if(!ctrl)return;
+  if(!isCurrentUserAuthor(c)){ctrl.style.display='none';return;}
+  ctrl.style.display='flex';
+
+  // Delete only allowed if zero responses
+  const deleteBtn=document.getElementById('cd-delete-btn');
+  if(deleteBtn){
+    const hasResponses=c.responses&&c.responses.length>0;
+    deleteBtn.disabled=hasResponses;
+    deleteBtn.title=hasResponses
+      ? 'Cannot delete — case has responses. Resolve it instead.'
+      : 'Delete case (only available while no one has responded)';
+    deleteBtn.style.opacity=hasResponses?'0.4':'1';
+    deleteBtn.style.cursor=hasResponses?'not-allowed':'pointer';
+  }
+}
+
+function openEditCase(){
+  const c=cases.find(x=>x.id===cdCaseId);
+  if(!c||!isCurrentUserAuthor(c))return;
+
+  // Populate fields
+  document.getElementById('edit-q-text').value=c.q||'';
+  document.getElementById('edit-spec-select').value=c.spec||'GEN';
+
+  // Populate dx options (exclude the always-included "Other" at the end)
+  const editableDdx=c.ddx.filter(d=>d!=='Other — with explanation');
+  const container=document.getElementById('edit-dx-inputs');
+  container.innerHTML='';
+  editableDdx.forEach(dx=>{
+    const row=document.createElement('div');
+    row.className='dx-input-row';
+    row.innerHTML=`<input type="text" value="${dx.replace(/"/g,'&quot;')}"><button class="remove-btn" onclick="removeDx(this)">×</button>`;
+    container.appendChild(row);
+  });
+  // Ensure at least 2 rows
+  while(container.querySelectorAll('.dx-input-row').length<2) addEditDxInput();
+
+  document.getElementById('edit-modal-overlay').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+
+function closeEditCase(){
+  document.getElementById('edit-modal-overlay').classList.remove('open');
+  document.body.style.overflow='hidden'; // case detail still open
+}
+
+function addEditDxInput(){
+  const c=document.getElementById('edit-dx-inputs');
+  const r=document.createElement('div');
+  r.className='dx-input-row';
+  r.innerHTML='<input type="text" placeholder="Add diagnosis…"><button class="remove-btn" onclick="removeDx(this)">×</button>';
+  c.appendChild(r);
+}
+
+async function submitEditCase(){
+  const c=cases.find(x=>x.id===cdCaseId);
+  if(!c||!isCurrentUserAuthor(c))return;
+
+  const q=document.getElementById('edit-q-text').value.trim();
+  if(!q)return showToast('Clinical question cannot be empty',true);
+  const spec=document.getElementById('edit-spec-select').value||'GEN';
+  const ddxRaw=Array.from(document.querySelectorAll('#edit-dx-inputs input[type=text]'))
+    .map(i=>i.value.trim()).filter(Boolean);
+  if(ddxRaw.length<2)return showToast('Keep at least 2 diagnosis options',true);
+  const ddx=[...ddxRaw];
+  if(!ddx.includes('Other — with explanation')) ddx.push('Other — with explanation');
+
+  const btn=document.getElementById('edit-submit-btn');
+  btn.disabled=true;btn.textContent='Saving…';
+
+  // Check if ddx changed — if so reset votes
+  const ddxChanged=JSON.stringify(ddx)!==JSON.stringify(c.ddx);
+  const newVotes=ddxChanged?ddx.map(()=>0):c.votes.slice(0,ddx.length).concat(ddx.slice(c.votes.length).map(()=>0));
+
+  try{
+    if(supabaseClient&&currentUser){
+      const{error}=await supabaseClient.from('cases')
+        .update({question:q,specialty:spec,ddx,votes:newVotes,total_votes:newVotes.reduce((a,b)=>a+b,0)})
+        .eq('id',cdCaseId);
+      if(error)throw new Error(error.message);
+    }
+    // Update local state
+    c.q=q;c.spec=spec;c.ddx=ddx;c.votes=newVotes;
+
+    closeEditCase();
+    // Refresh the case detail view
+    openCaseDetail(cdCaseId);
+    renderFeed();
+    showToast('Case updated ✓');
+  }catch(err){
+    showToast('Failed to save: '+err.message,true);
+  }finally{
+    btn.disabled=false;btn.textContent='Save changes →';
+  }
+}
+
+function confirmDeleteCase(){
+  const c=cases.find(x=>x.id===cdCaseId);
+  if(!c||!isCurrentUserAuthor(c))return;
+  if(c.responses&&c.responses.length>0){
+    showToast('Cannot delete — this case has responses. Resolve it instead.',true);
+    return;
+  }
+  // Show inline confirm via toast-style prompt
+  if(!confirm('Delete this case? This cannot be undone.'))return;
+  deleteCase();
+}
+
+async function deleteCase(){
+  const c=cases.find(x=>x.id===cdCaseId);
+  if(!c)return;
+  try{
+    if(supabaseClient&&currentUser){
+      const{error}=await supabaseClient.from('cases').delete().eq('id',cdCaseId);
+      if(error)throw new Error(error.message);
+    }
+    // Remove from local state
+    const idx=cases.findIndex(x=>x.id===cdCaseId);
+    if(idx>=0){cases.splice(idx,1);if(myCases>0)myCases--;}
+    closeCaseDetail();
+    renderFeed();
+    showToast('Case deleted.');
+  }catch(err){
+    showToast('Failed to delete: '+err.message,true);
+  }
+}
+
+// ══════════════════════════════════════════════
 // USER PROFILE
 // ══════════════════════════════════════════════
 function openProfile(){
@@ -3924,6 +4283,11 @@ async function signOut(){
 // Close post modal on overlay background click
 document.getElementById('post-modal-overlay').addEventListener('click',function(e){
   if(e.target===this)closePostModal();
+});
+
+// Close edit modal on overlay background click
+document.getElementById('edit-modal-overlay').addEventListener('click',function(e){
+  if(e.target===this)closeEditCase();
 });
 
 // Close case detail on overlay background click
@@ -4440,6 +4804,11 @@ function applyTheme(theme, save=true){
   const label=document.getElementById('theme-toggle-label');
   if(icon) icon.textContent=theme==='dark'?'☀️':'🌙';
   if(label) label.textContent=theme==='dark'?'Light mode':'Dark mode';
+  // Also sync drawer theme toggle
+  const dIcon=document.getElementById('drawer-theme-icon');
+  const dLabel=document.getElementById('drawer-theme-label');
+  if(dIcon) dIcon.textContent=theme==='dark'?'☀️':'🌙';
+  if(dLabel) dLabel.textContent=theme==='dark'?'Light mode':'Dark mode';
 }
 
 function toggleTheme(){
@@ -4525,5 +4894,40 @@ function toggleTheme(){
   }, 2000);
 })();
 </script>
+<!-- EDIT CASE MODAL -->
+<div class="post-modal-overlay" id="edit-modal-overlay" style="z-index:460;">
+  <div class="post-modal" style="max-width:560px;">
+    <div class="post-modal-header">
+      <div class="post-modal-title"><span class="logo-dot" style="width:10px;height:10px;background:var(--amber);"></span>Edit case</div>
+      <button class="post-modal-close" onclick="closeEditCase()">✕</button>
+    </div>
+    <div class="post-modal-body" style="grid-template-columns:1fr;padding:22px 28px;gap:14px;">
+      <div>
+        <div class="section-label" style="margin-top:0;">Clinical question</div>
+        <textarea id="edit-q-text" rows="7" placeholder="Describe the clinical scenario and your question…"></textarea>
+      </div>
+      <div>
+        <div class="section-label">Specialty</div>
+        <select id="edit-spec-select" style="width:100%;">
+          <option value="EP">EP / Rhythm</option>
+          <option value="IC">Interventional</option>
+          <option value="HF">Heart Failure</option>
+          <option value="GEN">General Cards</option>
+        </select>
+      </div>
+      <div>
+        <div class="section-label">Diagnosis options</div>
+        <div class="dx-inputs" id="edit-dx-inputs"></div>
+        <button class="add-dx-btn" onclick="addEditDxInput()" style="margin-top:6px;">+ Add option</button>
+        <p style="font-size:11px;color:var(--text3);margin-top:8px;line-height:1.5;">⚠️ Editing options will reset existing votes to zero.</p>
+      </div>
+    </div>
+    <div class="post-modal-footer">
+      <button class="post-modal-cancel" onclick="closeEditCase()">Cancel</button>
+      <button class="submit-case-btn" id="edit-submit-btn" onclick="submitEditCase()" style="width:auto;margin-top:0;padding:10px 28px;">Save changes →</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
