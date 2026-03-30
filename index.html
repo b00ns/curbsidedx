@@ -1953,6 +1953,7 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
 // SUPABASE
 // ══════════════════════════════════════════════
 let supabaseClient=null,currentUser=null,currentProfile=null,demoMode=false;
+let npiNudgeDismissed=false;
 const SUPABASE_URL_KEY='curbsidedx_supabase_url',SUPABASE_KEY_KEY='curbsidedx_supabase_key';
 
 // Hardcoded credentials — anon key is safe to embed in client code
@@ -4623,7 +4624,7 @@ function checkAndShowWelcome(){
 }
 
 // ── NPI NUDGE BANNER ──
-let npiNudgeDismissed=false;
+// npiNudgeDismissed declared at top of script
 
 function updateNPINudge(){
   const banner=document.getElementById('npi-nudge-banner');
