@@ -1300,8 +1300,8 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
       <div class="modal-tab" id="tab-signup" onclick="switchAuthTab('signup')">Create account</div>
     </div>
     <div id="signin-form">
-      <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="si-email" type="email" placeholder="you@hospital.edu"></div>
-      <div class="form-group"><label class="form-label">Password</label><input class="form-input" id="si-password" type="password" placeholder="••••••••"></div>
+      <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="si-email" type="email" placeholder="you@hospital.edu" onkeydown="if(event.key==='Enter')signIn()"></div>
+      <div class="form-group"><label class="form-label">Password</label><input class="form-input" id="si-password" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')signIn()"></div>
       <div class="form-error" id="si-error"></div>
       <button class="auth-btn" onclick="signIn()" id="si-btn">Sign in</button>
     </div>
@@ -2026,19 +2026,37 @@ function switchAuthTab(tab){
   document.getElementById('tab-signup').classList.toggle('active',tab==='signup');
 }
 async function signIn(){
-  if(!supabaseClient)return;
+  // Initialize client if not already set (handles race condition on page load)
+  if(!supabaseClient){
+    try{ supabaseClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY); }
+    catch(e){ showAuthError('si','Connection error — please refresh and try again'); return; }
+  }
   const email=document.getElementById('si-email').value.trim(),password=document.getElementById('si-password').value;
   if(!email||!password)return showAuthError('si','Email and password required');
   const btn=document.getElementById('si-btn');btn.disabled=true;btn.textContent='Signing in…';
   const{data,error}=await supabaseClient.auth.signInWithPassword({email,password});
   btn.disabled=false;btn.textContent='Sign in';
   if(error){showAuthError('si',error.message);return;}
-  currentUser=data.user;await fetchProfile();hideModal('auth-modal');updateUserUI();
+  currentUser=data.user;
+  await fetchProfile();
+  updateUserUI();
+  hideModal('auth-modal');
+  await loadCasesFromDB();
+  await loadRespondedCaseIds();
+  await loadSavedCaseIds();
+  await loadNotificationsFromDB();
+  subscribeToRealtime();
+  subscribeToNotifications();
+  renderFeed();
+  renderLeaderboard();
+  updateNPINudge();
   showToast('Welcome back, Dr. '+(currentProfile?.last_name||''));
-  if(supabaseClient)subscribeToRealtime();
 }
 async function signUp(){
-  if(!supabaseClient)return;
+  if(!supabaseClient){
+    try{ supabaseClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY); }
+    catch(e){ showAuthError('su','Connection error — please refresh and try again'); return; }
+  }
   const first=document.getElementById('su-first').value.trim(),last=document.getElementById('su-last').value.trim();
   const email=document.getElementById('su-email').value.trim(),password=document.getElementById('su-password').value;
   const spec=document.getElementById('su-spec').value,npi=document.getElementById('su-npi').value.trim();
