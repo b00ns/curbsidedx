@@ -413,8 +413,8 @@ input::placeholder{color:var(--text3);}
   .mobile-filter-bar{display:flex;gap:4px;overflow-x:auto;padding:8px 16px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
   .mobile-filter-bar::-webkit-scrollbar{display:none;}
   .mobile-filter-bar .ftab{white-space:nowrap;flex-shrink:0;font-size:12px;padding:5px 13px;}
-  /* Feed */
-  .feed{padding:12px 12px;gap:10px;overflow-y:auto;flex:1;}
+  /* Feed — extra bottom padding so last card clears the fixed nav */
+  .feed{padding:12px 12px 90px 12px;gap:10px;overflow-y:auto;flex:1;}
   /* Cards */
   .case-card{padding:14px;border-radius:14px;}
   .case-card:hover{transform:none;}
@@ -432,7 +432,9 @@ input::placeholder{color:var(--text3);}
   /* Bottom nav */
   .mobile-nav{display:block;position:fixed;bottom:0;left:0;right:0;z-index:200;
     background:var(--bg2);border-top:1px solid var(--border);
-    padding-bottom:env(safe-area-inset-bottom,0px);}
+    padding-bottom:env(safe-area-inset-bottom,0px);
+    backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);}
   .rp-drawer-overlay,.sidebar-drawer-overlay{display:none;}
   .rp-drawer-overlay.open,.sidebar-drawer-overlay.open{display:block;}
   .modal{width:calc(100vw - 24px);max-height:92dvh;overflow-y:auto;}
@@ -2027,36 +2029,47 @@ function switchAuthTab(tab){
   document.getElementById('tab-signup').classList.toggle('active',tab==='signup');
 }
 async function signIn(){
-  // Initialize client if not already set (handles race condition on page load)
-  if(!supabaseClient){
-    try{ supabaseClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY); }
-    catch(e){ showAuthError('si','Connection error — please refresh and try again'); return; }
-  }
-  const email=document.getElementById('si-email').value.trim(),password=document.getElementById('si-password').value;
+  const email=document.getElementById('si-email').value.trim();
+  const password=document.getElementById('si-password').value;
   if(!email||!password)return showAuthError('si','Email and password required');
   const btn=document.getElementById('si-btn');btn.disabled=true;btn.textContent='Signing in…';
-  const{data,error}=await supabaseClient.auth.signInWithPassword({email,password});
-  btn.disabled=false;btn.textContent='Sign in';
-  if(error){showAuthError('si',error.message);return;}
-  currentUser=data.user;
-  await fetchProfile();
-  updateUserUI();
-  hideModal('auth-modal');
-  await loadCasesFromDB();
-  await loadRespondedCaseIds();
-  await loadSavedCaseIds();
-  await loadNotificationsFromDB();
-  subscribeToRealtime();
-  subscribeToNotifications();
-  renderFeed();
-  renderLeaderboard();
-  updateNPINudge();
-  showToast('Welcome back, Dr. '+(currentProfile?.last_name||''));
+  try{
+    // Always create a fresh client — avoids all scoping/race issues
+    const sb=window.supabase.createClient(
+      'https://ebzuytnzbwmzrrspmmqr.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVienV5dG56YndtenJyc3BtbXFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5ODU5MzIsImV4cCI6MjA4OTU2MTkzMn0.2W5wY7EOhaZGnYwvHxQF9H9NowiwRJ53tCvB2HIDeXw'
+    );
+    const{data,error}=await sb.auth.signInWithPassword({email,password});
+    if(error){btn.disabled=false;btn.textContent='Sign in';showAuthError('si',error.message);return;}
+    supabaseClient=sb;window.supabaseClient=sb;
+    currentUser=data.user;
+    await fetchProfile();
+    updateUserUI();
+    hideModal('auth-modal');
+    await loadCasesFromDB();
+    await loadRespondedCaseIds();
+    await loadSavedCaseIds();
+    await loadNotificationsFromDB();
+    subscribeToRealtime();
+    subscribeToNotifications();
+    renderFeed();
+    renderLeaderboard();
+    updateNPINudge();
+    showToast('Welcome back, Dr. '+(currentProfile?.last_name||''));
+  }catch(e){
+    btn.disabled=false;btn.textContent='Sign in';
+    showAuthError('si','Connection error: '+e.message);
+  }
 }
 async function signUp(){
   if(!supabaseClient){
-    try{ supabaseClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY); }
-    catch(e){ showAuthError('su','Connection error — please refresh and try again'); return; }
+    try{
+      supabaseClient=window.supabase.createClient(
+        'https://ebzuytnzbwmzrrspmmqr.supabase.co',
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVienV5dG56YndtenJyc3BtbXFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5ODU5MzIsImV4cCI6MjA4OTU2MTkzMn0.2W5wY7EOhaZGnYwvHxQF9H9NowiwRJ53tCvB2HIDeXw'
+      );
+      window.supabaseClient=supabaseClient;
+    }catch(e){ showAuthError('su','Connection error — please refresh and try again'); return; }
   }
   const first=document.getElementById('su-first').value.trim(),last=document.getElementById('su-last').value.trim();
   const email=document.getElementById('su-email').value.trim(),password=document.getElementById('su-password').value;
@@ -2623,7 +2636,7 @@ function subscribeToRealtime(){
   }).subscribe();
   supabaseClient.channel('responses').on('postgres_changes',{event:'INSERT',schema:'public',table:'responses'},payload=>{
     const caseId=payload.new.case_id,c=cases.find(x=>x.id===caseId);
-    if(c){c.responses.unshift(mapDBResponse(payload.new));const dxIdx=c.ddx.findIndex(d=>d===payload.new.diagnosis);if(dxIdx>=0)c.votes[dxIdx]++;renderFeed();if(selectedCaseId===caseId)renderResponses(c);}
+    if(c){c.responses.unshift(mapDBResponse(payload.new));const dxIdx=c.ddx.findIndex(d=>d===payload.new.diagnosis);if(dxIdx>=0)c.votes[dxIdx]++;renderFeed();renderLeaderboard();if(selectedCaseId===caseId)renderResponses(c);}
   }).subscribe();
 }
 function mapDBCase(row){
@@ -2665,6 +2678,7 @@ async function loadCasesFromDB(){
   if(respError)console.warn('loadCasesFromDB — responses error:',respError);
   cases=caseRows.map(row=>{const c=mapDBCase(row);c.responses=(responseRows||[]).filter(r=>r.case_id===row.id).map(mapDBResponse);return c;});
   renderFeed();
+  renderLeaderboard();
 }
 async function persistCase(caseData){
   if(!supabaseClient||!currentUser)return null;
