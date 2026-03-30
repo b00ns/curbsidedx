@@ -1963,10 +1963,6 @@ const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 
 function initSupabase(){
   try{
-    if(!SUPABASE_ANON_KEY||SUPABASE_ANON_KEY==='REPLACE_WITH_SUPABASE_JWT_ANON_KEY'||!SUPABASE_ANON_KEY.startsWith('eyJ')){
-      console.error('Invalid Supabase anon key — must be a JWT starting with eyJ');
-      return false;
-    }
     supabaseClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
     return true;
   }catch(e){
