@@ -221,6 +221,16 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text);overflo
   display:flex;align-items:center;justify-content:space-between;
   padding:10px 14px;background:var(--bg3);border-bottom:1px solid var(--border);
 }
+/* Video player — 16:9 aspect ratio container so it matches ECG panel proportions */
+.cd-video-player-wrap{
+  position:relative;width:100%;
+  padding-bottom:56.25%;/* 16:9 */
+  background:#000;
+}
+.cd-video-player{
+  position:absolute;inset:0;width:100%;height:100%;
+  display:block;object-fit:contain;background:#000;
+}
 .cd-video-player{width:100%;display:block;max-height:360px;background:#000;}
 /* PHI video warning */
 .phi-video-warning{
@@ -475,6 +485,10 @@ input::placeholder{color:var(--text3);}
   transform:translateY(24px);transition:transform .3s cubic-bezier(.4,0,.2,1);
 }
 .case-detail-overlay.open .case-detail-shell{transform:translateY(0);}
+@media(max-width:900px){
+  .case-detail-overlay{align-items:flex-start;}
+  .case-detail-shell{overflow-y:auto;height:100dvh;}
+}
 
 /* Header bar */
 .cd-header{
@@ -616,9 +630,22 @@ input::placeholder{color:var(--text3);}
 /* Mobile case detail */
 @media(max-width:900px){
   .case-detail-shell{max-width:100%;}
-  .cd-body{grid-template-columns:1fr;grid-template-rows:auto 1fr;overflow-y:auto;}
-  .cd-left{border-right:none;border-bottom:1px solid var(--border);max-height:none;padding:16px 14px;overflow-y:visible;}
-  .cd-right{min-height:auto;overflow-y:auto;}
+  .cd-body{
+    grid-template-columns:1fr;
+    grid-template-rows:auto 1fr;
+    overflow-y:auto;
+    /* Let body scroll, not individual panels */
+  }
+  .cd-left{
+    border-right:none;
+    border-bottom:1px solid var(--border);
+    padding:16px 14px;
+    overflow-y:visible;
+    /* Cap height so response panel is always reachable by scrolling */
+    max-height:55vh;
+    overflow-y:auto;
+  }
+  .cd-right{min-height:auto;overflow-y:visible;}
   .cd-header{padding:12px 14px;}
   .cd-header-title{font-size:13px;}
   .cd-back-btn{font-size:12px;padding:5px 10px;}
@@ -632,7 +659,7 @@ input::placeholder{color:var(--text3);}
   .cd-bar-pct{font-size:12px;}
   .cd-dx-option{padding:10px 12px;}
   .cd-dx-opt-label{font-size:13px;}
-  .cd-submit-btn{padding:12px;font-size:13px;font-weight:600;border-radius:10px;position:sticky;bottom:0;z-index:2;}
+  .cd-submit-btn{padding:12px;font-size:13px;font-weight:600;border-radius:10px;}
 }
 @media(max-width:600px){
   .cd-question-text{font-size:12.5px;}
@@ -641,6 +668,8 @@ input::placeholder{color:var(--text3);}
   .cd-respond-section{padding:12px 12px;}
   .cd-thread-section{padding:12px 12px;}
   .cd-resp-note{font-size:12px;}
+  /* On small phones, make left panel even shorter */
+  .cd-left{max-height:45vh;}
 }
 /* ── IMAGE ZOOM LIGHTBOX ── */
 .img-zoom-overlay{
@@ -3704,9 +3733,10 @@ function openCaseDetail(id){
         <div class="cd-ecg-label-left">🎬 Angiogram / Video clip</div>
         <div class="cd-ecg-label-right">De-identified ✓</div>
       </div>
-      <video class="cd-video-player" src="${c.videoUrl}" controls playsinline preload="metadata"
-        style="width:100%;display:block;max-height:360px;background:#000;object-fit:contain;">
-      </video>
+      <div class="cd-video-player-wrap">
+        <video class="cd-video-player" src="${c.videoUrl}" controls playsinline preload="metadata">
+        </video>
+      </div>
     </div>`;
     ecgBlock.style.display='block';
   } else if(c.hasECG||c.ecgImageUrl){
