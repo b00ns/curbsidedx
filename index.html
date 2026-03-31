@@ -205,7 +205,7 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text);overflo
 /* Video player in case cards */
 .case-video-wrap{
   border-radius:var(--r);overflow:hidden;margin-bottom:12px;
-  border:1px solid var(--border);background:#000;position:relative;
+  border:1px solid var(--border);background:#111;position:relative;
 }
 .case-video-wrap video{width:100%;display:block;max-height:180px;object-fit:contain;}
 .case-video-wrap .ecg-overlay{
@@ -319,8 +319,9 @@ input::placeholder{color:var(--text3);}
 .stat-box{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:12px;}
 .stat-val{font-size:22px;font-weight:300;color:var(--text);font-family:var(--font-serif);}
 .stat-lbl{font-size:11px;color:var(--text3);margin-top:3px;}
-.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(60px);background:var(--card2);border:1px solid var(--border2);border-radius:var(--r2);padding:12px 20px;font-size:13px;color:var(--text);transition:transform .3s cubic-bezier(.4,0,.2,1);z-index:999;display:flex;align-items:center;gap:8px;box-shadow:0 8px 32px rgba(0,0,0,.4);max-width:90vw;}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(200px);background:var(--card2);border:1px solid var(--border2);border-radius:var(--r2);padding:12px 20px;font-size:13px;color:var(--text);transition:transform .3s cubic-bezier(.4,0,.2,1);z-index:999;display:flex;align-items:center;gap:8px;box-shadow:0 8px 32px rgba(0,0,0,.4);max-width:90vw;}
 .toast.show{transform:translateX(-50%) translateY(0);}
+@media(max-width:600px){.toast.show{transform:translateX(0) translateY(0);}}
 .toast-dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;}
 .toast-dot.error{background:var(--red);}
 .modal-overlay{position:fixed;inset:0;bottom:0;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);z-index:500;display:flex;align-items:center;justify-content:center;animation:fadein .2s ease;padding:16px;}
@@ -414,8 +415,8 @@ input::placeholder{color:var(--text3);}
   .mobile-filter-bar{display:flex;gap:4px;overflow-x:auto;padding:8px 16px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
   .mobile-filter-bar::-webkit-scrollbar{display:none;}
   .mobile-filter-bar .ftab{white-space:nowrap;flex-shrink:0;font-size:12px;padding:5px 13px;}
-  /* Feed — extra bottom padding so last card clears the fixed nav */
-  .feed{padding:12px 12px 90px 12px;gap:10px;overflow-y:auto;flex:1;}
+  /* Feed — extra bottom padding so last card clears the fixed nav + safe area */
+  .feed{padding:12px 12px 120px 12px;gap:10px;overflow-y:auto;flex:1;}
   /* Cards */
   .case-card{padding:14px;border-radius:14px;}
   .case-card:hover{transform:none;}
@@ -430,15 +431,15 @@ input::placeholder{color:var(--text3);}
   .bar-track{height:6px;}
   .case-footer{padding-top:10px;}
   .respond-btn{padding:7px 14px;font-size:12px;}
-  /* Bottom nav */
+  /* Bottom nav — padding-bottom covers iPhone home indicator */
   .mobile-nav{display:block;position:fixed;bottom:0;left:0;right:0;z-index:200;
     background:var(--bg2);border-top:1px solid var(--border);
-    padding-bottom:env(safe-area-inset-bottom,0px);
-    backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);}
-  /* Fill the safe area below nav with matching background */
-  body::after{content:'';position:fixed;bottom:0;left:0;right:0;
-    height:env(safe-area-inset-bottom,0px);
-    background:var(--bg2);z-index:199;pointer-events:none;}
+    /* Hardcoded 34px covers iPhone home indicator; env() adds exact value when available */
+    padding-bottom:34px;
+    padding-bottom:env(safe-area-inset-bottom, 34px);}
+  /* Block behind nav covers any remaining gap */
+  body::after{content:'';display:block;position:fixed;bottom:0;left:0;right:0;
+    height:34px;background:var(--bg2);z-index:190;pointer-events:none;}
   .rp-drawer-overlay,.sidebar-drawer-overlay{display:none;}
   .rp-drawer-overlay.open,.sidebar-drawer-overlay.open{display:block;}
   .modal{width:calc(100vw - 24px);max-height:92dvh;overflow-y:auto;}
@@ -457,8 +458,6 @@ input::placeholder{color:var(--text3);}
   .bar-row{gap:7px;}
   .mnav-item{padding:9px 4px 14px;font-size:10px;}
   .mnav-icon{font-size:17px;}
-  /* Safe area bottom */
-  .mobile-nav{padding-bottom:env(safe-area-inset-bottom,4px);}
 }
 
 /* ══════════════════════════════════════════════
@@ -1291,7 +1290,7 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
   .npi-nudge-banner{flex-wrap:wrap;}
   .npi-nudge-btn{width:100%;text-align:center;padding:7px;}
   /* Toast */
-  .toast{left:12px;right:12px;bottom:76px;width:auto;border-radius:10px;}
+  .toast{left:12px;right:12px;bottom:90px;width:auto;border-radius:10px;transform:translateX(0) translateY(200px);}
 }
 </style>
 </head>
@@ -2751,12 +2750,21 @@ function ecgPoints(type){
 }
 function renderECGThumb(c){
   if(c.videoUrl){
+    // Use a unique ID so we can seek to first frame for thumbnail
+    const vid=`vid-${c.id}`;
     return`<div class="case-video-wrap">
-      <video src="${c.videoUrl}" muted playsinline preload="metadata" style="width:100%;max-height:180px;display:block;object-fit:contain;background:#000;"
-        onmouseenter="this.play()" onmouseleave="this.pause();this.currentTime=0"></video>
+      <video id="${vid}" src="${c.videoUrl}#t=0.5" muted playsinline preload="metadata"
+        style="width:100%;max-height:180px;display:block;object-fit:contain;background:#111;"
+        onloadeddata="this.currentTime=0.5"
+        onmouseenter="this.play()" onmouseleave="this.pause();this.currentTime=0.5"></video>
       <div class="ecg-overlay">
         <span class="ecg-tag">🎬 Video</span>
         <span class="ecg-tag2">De-identified</span>
+      </div>
+      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;">
+        <div style="width:44px;height:44px;border-radius:50%;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;">
+          <div style="width:0;height:0;border-style:solid;border-width:9px 0 9px 18px;border-color:transparent transparent transparent rgba(255,255,255,.9);margin-left:3px;"></div>
+        </div>
       </div>
     </div>`;
   }
