@@ -1442,6 +1442,7 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
     <div class="nav-item" onclick="setNavView('mycases',this);closeSidebarDrawer()"><span class="nav-icon">📋</span> My cases</div>
     <div class="nav-item" onclick="setNavView('responded',this);closeSidebarDrawer()"><span class="nav-icon">💬</span> Responded</div>
     <div class="nav-item" onclick="setNavView('saved',this);closeSidebarDrawer()"><span class="nav-icon">★</span> Saved cases</div>
+    <div class="nav-item" onclick="setNavView('following',this);closeSidebarDrawer()"><span class="nav-icon">👥</span> Following</div>
     <div class="nav-section">Specialty</div>
     <div class="nav-item" onclick="filterSpec('EP',this);closeSidebarDrawer()"><span class="nav-icon">〰</span> EP / Rhythm</div>
     <div class="nav-item" onclick="filterSpec('IC',this);closeSidebarDrawer()"><span class="nav-icon">🫀</span> Interventional</div>
@@ -1480,6 +1481,7 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
       <div class="nav-item" onclick="setNavView('mycases',this)"><span class="nav-icon">📋</span> My cases<span class="nav-count" id="count-mycases" style="display:none;"></span></div>
       <div class="nav-item" onclick="setNavView('responded',this)"><span class="nav-icon">💬</span> Responded<span class="nav-count" id="count-responded" style="display:none;"></span></div>
       <div class="nav-item" onclick="setNavView('saved',this)"><span class="nav-icon">★</span> Saved cases<span class="nav-count" id="count-saved" style="display:none;"></span></div>
+      <div class="nav-item" onclick="setNavView('following',this)" id="nav-following"><span class="nav-icon">👥</span> Following<span class="nav-count" id="count-following" style="display:none;"></span></div>
       <div class="nav-section">Specialty</div>
       <div class="nav-item" onclick="filterSpec('EP',this)"><span class="nav-icon">〰</span> EP / Rhythm<span class="nav-badge" id="count-EP">0</span></div>
       <div class="nav-item" onclick="filterSpec('IC',this)"><span class="nav-icon">🫀</span> Interventional<span class="nav-count" id="count-IC">0</span></div>
@@ -1713,6 +1715,116 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
 
 @media(max-width:600px){
   .notif-panel{width:calc(100vw - 24px);right:-8px;}
+}
+
+/* ══════════════════════════════════════════════
+   PUBLIC PHYSICIAN PROFILE MODAL
+   ══════════════════════════════════════════════ */
+.physician-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.8);backdrop-filter:blur(8px);
+  z-index:520;display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity .2s ease;padding:20px;
+}
+.physician-overlay.open{opacity:1;pointer-events:all;}
+.physician-modal{
+  background:var(--card);border:1px solid var(--border2);border-radius:20px;
+  width:100%;max-width:500px;max-height:88vh;
+  display:flex;flex-direction:column;
+  animation:slideUp .3s cubic-bezier(.4,0,.2,1);
+  overflow:hidden;
+}
+.physician-modal-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:18px 24px 0;flex-shrink:0;
+}
+.physician-modal-close{
+  background:var(--bg3);border:1px solid var(--border2);border-radius:50%;
+  width:30px;height:30px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;color:var(--text2);font-size:14px;transition:all .15s;flex-shrink:0;
+}
+.physician-modal-close:hover{background:var(--card2);color:var(--text);}
+.physician-modal-body{flex:1;overflow-y:auto;padding:20px 24px 28px;}
+.physician-modal-body::-webkit-scrollbar{width:4px;}
+.physician-modal-body::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+
+.phys-hero{display:flex;align-items:flex-start;gap:16px;margin-bottom:20px;}
+.phys-avatar-lg{
+  width:64px;height:64px;border-radius:50%;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;font-weight:600;color:white;overflow:hidden;
+  border:2px solid var(--border2);
+}
+.phys-avatar-lg img{width:100%;height:100%;object-fit:cover;}
+.phys-hero-info{flex:1;min-width:0;}
+.phys-hero-name{font-size:18px;font-weight:600;color:var(--text);font-family:var(--font-serif);}
+.phys-hero-spec{font-size:13px;color:var(--text2);margin-top:2px;}
+.phys-hero-institution{font-size:12px;color:var(--text3);margin-top:2px;}
+.phys-hero-badges{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+
+.follow-btn{
+  display:flex;align-items:center;gap:6px;
+  background:var(--accentbg);color:var(--accent);
+  border:1px solid rgba(59,130,246,.3);border-radius:var(--r);
+  padding:7px 16px;font-size:12px;font-weight:500;
+  cursor:pointer;font-family:var(--font-sans);transition:all .2s;
+  white-space:nowrap;flex-shrink:0;
+}
+.follow-btn:hover{background:var(--accentbg2);border-color:rgba(59,130,246,.5);}
+.follow-btn.following{
+  background:var(--bg3);color:var(--text2);
+  border-color:var(--border2);
+}
+.follow-btn.following:hover{background:var(--redbg);color:var(--red);border-color:rgba(239,68,68,.3);}
+
+.phys-stats-row{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:8px;
+  margin-bottom:18px;
+}
+.phys-stat{
+  background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);
+  padding:10px 12px;text-align:center;
+}
+.phys-stat-val{font-size:20px;font-weight:300;color:var(--text);font-family:var(--font-serif);}
+.phys-stat-lbl{font-size:10px;color:var(--text3);margin-top:2px;}
+
+.phys-section-title{
+  font-size:10px;color:var(--text3);letter-spacing:.7px;text-transform:uppercase;
+  margin-bottom:8px;margin-top:16px;
+}
+.phys-case-item{
+  background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);
+  padding:10px 12px;margin-bottom:6px;cursor:pointer;transition:all .15s;
+}
+.phys-case-item:hover{border-color:var(--border2);background:var(--card2);}
+.phys-case-q{font-size:12px;color:var(--text);line-height:1.5;margin-bottom:6px;}
+.phys-case-meta{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text3);}
+
+/* Clickable author name in thread + cards */
+.author-link{cursor:pointer;transition:color .12s;}
+.author-link:hover{color:var(--accent)!important;}
+
+/* ── AVATAR PHOTO UPLOAD (own profile) ── */
+.profile-avatar-wrap{
+  position:relative;width:64px;height:64px;flex-shrink:0;cursor:pointer;
+}
+.profile-avatar-wrap:hover .avatar-edit-overlay{opacity:1;}
+.avatar-edit-overlay{
+  position:absolute;inset:0;border-radius:50%;
+  background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;
+  opacity:0;transition:opacity .18s;font-size:18px;color:white;
+}
+.profile-hero-avatar-img{
+  width:64px;height:64px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;font-weight:600;color:white;overflow:hidden;
+  border:2px solid var(--border2);
+}
+.profile-hero-avatar-img img{width:100%;height:100%;object-fit:cover;}
+
+/* ── FOLLOWING NAV ITEM INDICATOR ── */
+.following-dot{
+  width:6px;height:6px;border-radius:50%;background:var(--accent);
+  flex-shrink:0;animation:pulse 2s infinite;
 }
 
 /* ── POST CASE MODAL ── */
@@ -2080,6 +2192,7 @@ async function signIn(){
     await loadCasesFromDB();
     await loadRespondedCaseIds();
     await loadSavedCaseIds();
+    await loadFollowing();
     await loadNotificationsFromDB();
     subscribeToRealtime();
     subscribeToNotifications();
@@ -2191,16 +2304,20 @@ function updateUserUI(){
   const name=`Dr. ${p.first_name?p.first_name[0]+'. ':''}${p.last_name||''}`;
   const role=`${p.specialty||'—'} · ${p.institution||'—'}`;
   const badgeHtml=p.npi_verified?'<div class="verified-badge">MD ✓</div>':'<div class="unverified-badge" onclick="showNPIPanel()">Verify NPI</div>';
+  const avatarContent=p.avatar_url
+    ?`<img src="${p.avatar_url}" alt="${name}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`
+    :initials;
   // Desktop sidebar
   document.getElementById('sidebar-name').textContent=name;
   document.getElementById('sidebar-role').textContent=role;
-  document.querySelector('#sidebar-user-row .avatar').textContent=initials;
+  const sidebarAvatar=document.querySelector('#sidebar-user-row .avatar');
+  if(sidebarAvatar){sidebarAvatar.innerHTML=avatarContent;sidebarAvatar.style.overflow='hidden';}
   document.getElementById('sidebar-badge').innerHTML=badgeHtml;
   // Mobile drawer user row
   const mobileRow=document.getElementById('mobile-user-row');
   if(mobileRow){
     mobileRow.innerHTML=`
-      <div class="avatar" style="background:linear-gradient(135deg,#3b82f6,#8b5cf6)">${initials}</div>
+      <div class="avatar" style="background:linear-gradient(135deg,#3b82f6,#8b5cf6);overflow:hidden">${avatarContent}</div>
       <div class="user-info"><div class="name">${name}</div><div class="role">${role}</div></div>
       <div>${p.npi_verified?'<div class="verified-badge">MD ✓</div>':'<div class="unverified-badge">Verify</div>'}</div>`;
   }
@@ -2722,8 +2839,7 @@ function mapDBCase(row){
   resolvedDx:row.resolved_dx||null,resolvedNote:row.resolved_note||null,
   status:row.status||'open',responses:[]
 };}
-function mapDBResponse(row){return{id:row.id,ph:-1,name:row.author_name,spec:row.author_spec,initials:row.author_initials,color:row.author_color||'#3b82f6',dx:row.diagnosis,conf:row.confidence||3,note:row.note||'',time:timeAgo(row.created_at),npiVerified:row.npi_verified||false,specialty:row.author_specialty||''};}
-async function loadCasesFromDB(){
+function mapDBResponse(row){return{id:row.id,ph:-1,name:row.author_name,spec:row.author_spec,initials:row.author_initials,color:row.author_color||'#3b82f6',authorId:row.author_id||null,dx:row.diagnosis,conf:row.confidence||3,note:row.note||'',time:timeAgo(row.created_at),npiVerified:row.npi_verified||false,specialty:row.author_specialty||''};}
   if(!supabaseClient)return;
   const{data:caseRows,error:caseError}=await supabaseClient.from('cases').select('*').order('created_at',{ascending:false}).limit(50);
   if(caseError){
@@ -2885,6 +3001,7 @@ function formatCaseTime(c){
 let selectedCaseId=null,selectedDx=null,selectedConf=0,myResponses=0,myCases=0,currentFilter='all',currentSpec=null;
 let savedCaseIds=new Set(); // persisted to Supabase saved_cases table
 let respondedDxMap=new Map(); // case_id -> dx voted (for Responded view highlight)
+let followingIds=new Set();   // set of user_ids the current user follows
 
 function largestRemainder(votes,total){
   if(!total)return votes.map(()=>0);
@@ -2918,6 +3035,15 @@ function renderFeed(){
     filtered=cases.filter(c=>savedCaseIds.has(c.id));
     if(filtered.length===0){
       feed.innerHTML=renderEmptyState('No saved cases','Tap the ☆ on any case to bookmark it for quick reference. Great for complex cases you want to revisit.');
+      return;
+    }
+  } else if(currentView==='following'){
+    filtered=cases.filter(c=>followingIds.has(c.authorId));
+    if(filtered.length===0){
+      const followCount=followingIds.size;
+      const msg=followCount===0?'Not following anyone yet':'No cases from people you follow';
+      const sub=followCount===0?'Click on any physician\'s name or avatar to view their profile and follow them.':'The physicians you follow haven\'t posted recently. Check the live feed for new cases.';
+      feed.innerHTML=renderEmptyState(msg,sub);
       return;
     }
   } else {
@@ -2979,10 +3105,10 @@ function renderFeed(){
 
     div.innerHTML=`
       <div class="case-header">
-        <div class="case-avatar" style="background:${c.authorColor}22;color:${c.authorColor}">${c.authorInit}</div>
+        <div class="case-avatar author-link" style="background:${c.authorColor}22;color:${c.authorColor}" onclick="openAuthorProfile(event,'${c.authorId}',{name:'${(c.author||'').replace(/'/g,"\\'")}',spec:'${(c.authorSpec||'').replace(/'/g,"\\'")}',initials:'${c.authorInit||'??'}',color:'${c.authorColor}',npiVerified:${!!c.authorNpiVerified}})" title="View profile">${c.authorInit}</div>
         <div class="case-meta">
           <div class="case-author" style="display:flex;align-items:center;gap:5px;">
-            ${c.author}
+            <span class="author-link" onclick="openAuthorProfile(event,'${c.authorId}',{name:'${(c.author||'').replace(/'/g,"\\'")}',spec:'${(c.authorSpec||'').replace(/'/g,"\\'")}',initials:'${c.authorInit||'??'}',color:'${c.authorColor}',npiVerified:${!!c.authorNpiVerified}})">${c.author}</span>
             ${c.authorNpiVerified?`<span class="v-chip verified">MD ✓</span>`:''}
           </div>
           <div class="case-sub">${c.authorSpec}</div>
@@ -3303,7 +3429,7 @@ function setNavView(view,el){
 }
 
 function updateTopbarTitle(){
-  const titles={feed:'Live feed',mycases:'My cases',responded:'Cases I responded to',saved:'Saved cases'};
+  const titles={feed:'Live feed',mycases:'My cases',responded:'Cases I responded to',saved:'Saved cases',following:'Following'};
   const el=document.getElementById('topbar-title');
   if(el) el.textContent=titles[currentView]||'Live feed';
   const livePill=document.querySelector('.live-pill');
@@ -3339,6 +3465,10 @@ function updateSpecCounts(){
   const savedCount=savedCaseIds.size;
   const savedEl=document.getElementById('count-saved');
   if(savedEl){savedEl.textContent=savedCount;savedEl.style.display=savedCount>0?'':'none';}
+
+  const followingCount=followingIds.size>0?cases.filter(c=>followingIds.has(c.authorId)).length:0;
+  const followingEl=document.getElementById('count-following');
+  if(followingEl){followingEl.textContent=followingCount;followingEl.style.display=followingCount>0?'':'none';}
 }
 
 function renderEmptyState(msg,sub){
@@ -3446,7 +3576,7 @@ function renderLeaderboard(){
     c.responses.forEach(r=>{
       if(!r.name||r.name==='Dr. You')return;
       const key=r.name;
-      if(!responderMap.has(key))responderMap.set(key,{name:r.name,spec:r.spec||'—',color:r.color||'#3b82f6',initials:r.initials||'??',count:0,correct:0});
+      if(!responderMap.has(key))responderMap.set(key,{name:r.name,spec:r.spec||'—',color:r.color||'#3b82f6',initials:r.initials||'??',userId:r.authorId||null,count:0,correct:0});
       const entry=responderMap.get(key);
       entry.count++;
       // "Correct" = voted for the plurality diagnosis
@@ -3475,7 +3605,8 @@ function renderLeaderboard(){
   document.getElementById('leaderboard').innerHTML=leaderData.map((p,i)=>{
     const acc=p.count>0?Math.round(p.correct/p.count*100)+'%':'—';
     const init=p.initials||(p.name.split(' ').slice(-1)[0].slice(0,2).toUpperCase());
-    return`<div class="lb-item">
+    const profileClick=p.userId?`onclick="openPhysicianProfile('${p.userId}',{name:'${(p.name||'').replace(/'/g,"\\'")}',spec:'${(p.spec||'').replace(/'/g,"\\'")}',initials:'${init}',color:'${p.color}',npiVerified:true})" style="cursor:pointer;"`:'' ;
+    return`<div class="lb-item" ${profileClick}>
       <div class="lb-rank${i<3?' gold':''}">${rankEmoji[i]||i+1}</div>
       <div class="avatar sm" style="background:${p.color}22;color:${p.color}">${init}</div>
       <div class="lb-info"><div class="lb-name">${p.name}</div><div class="lb-spec">${p.spec||'—'}</div></div>
@@ -3573,6 +3704,207 @@ async function loadSavedCaseIds(){
   if(data)data.forEach(r=>savedCaseIds.add(r.case_id));
   // DOM update handled by updateStatCounters() after all loads complete
 }
+
+// ══════════════════════════════════════════════
+// FOLLOW SYSTEM
+// ══════════════════════════════════════════════
+async function loadFollowing(){
+  if(!supabaseClient||!currentUser)return;
+  try{
+    const{data}=await supabaseClient.from('follows').select('following_id').eq('follower_id',currentUser.id);
+    if(data) data.forEach(r=>followingIds.add(r.following_id));
+    updateSpecCounts();
+  }catch(e){console.warn('loadFollowing error:',e.message);}
+}
+
+async function toggleFollow(targetUserId){
+  if(!currentUser&&!demoMode){showToast('Sign in to follow physicians',true);return;}
+  if(targetUserId===currentUser?.id){showToast('You cannot follow yourself',true);return;}
+
+  const wasFollowing=followingIds.has(targetUserId);
+  if(wasFollowing){
+    followingIds.delete(targetUserId);
+    if(supabaseClient&&currentUser){
+      try{await supabaseClient.from('follows').delete().eq('follower_id',currentUser.id).eq('following_id',targetUserId);}
+      catch(e){followingIds.add(targetUserId);showToast('Error: '+e.message,true);return;}
+    }
+    showToast('Unfollowed');
+  } else {
+    followingIds.add(targetUserId);
+    if(supabaseClient&&currentUser){
+      try{await supabaseClient.from('follows').insert({follower_id:currentUser.id,following_id:targetUserId});}
+      catch(e){followingIds.delete(targetUserId);showToast('Error: '+e.message,true);return;}
+    }
+    showToast('Following ✓');
+  }
+  updateSpecCounts();
+  renderFeed();
+  // Refresh follow button if physician modal is open for this user
+  const modal=document.getElementById('physician-overlay');
+  if(modal&&modal.classList.contains('open')&&_currentPhysicianId===targetUserId){
+    renderFollowBtn(targetUserId);
+  }
+}
+
+// ── PHYSICIAN PROFILE MODAL ──
+let _currentPhysicianId=null;
+
+async function openPhysicianProfile(userId, fallbackData){
+  // fallbackData: {name, spec, initials, color, npiVerified} from case card
+  _currentPhysicianId=userId;
+  const overlay=document.getElementById('physician-overlay');
+  const body=document.getElementById('physician-modal-body');
+  overlay.classList.add('open');
+  document.body.style.overflow='hidden';
+
+  // Show skeleton with fallback immediately
+  const initials=fallbackData?.initials||'??';
+  const color=fallbackData?.color||'#3b82f6';
+  body.innerHTML=renderPhysicianSkeleton(fallbackData);
+
+  // Fetch full profile from Supabase
+  let profile=null;
+  if(supabaseClient&&userId&&userId!=='demo'){
+    try{
+      const{data}=await supabaseClient.from('profiles').select('*').eq('id',userId).single();
+      profile=data;
+    }catch(e){console.warn('fetchPhysicianProfile:',e.message);}
+  }
+
+  // Fetch their cases
+  let theirCases=cases.filter(c=>c.authorId===userId);
+  if(supabaseClient&&userId&&userId!=='demo'&&theirCases.length===0){
+    try{
+      const{data}=await supabaseClient.from('cases').select('id,question,specialty,votes,ddx,created_at,resolved_dx').eq('author_id',userId).order('created_at',{ascending:false}).limit(5);
+      if(data) theirCases=data.map(r=>({id:r.id,q:r.question,spec:r.specialty,votes:r.votes||[],ddx:r.ddx||[],createdAt:r.created_at,resolvedDx:r.resolved_dx}));
+    }catch(e){}
+  }
+
+  // Fetch their response count
+  let respCount=0;
+  if(supabaseClient&&userId&&userId!=='demo'){
+    try{
+      const{count}=await supabaseClient.from('responses').select('id',{count:'exact',head:true}).eq('author_id',userId);
+      respCount=count||0;
+    }catch(e){}
+  }
+
+  body.innerHTML=renderPhysicianBody(profile, fallbackData, theirCases, respCount, userId);
+}
+
+function renderPhysicianSkeleton(fb){
+  const initials=fb?.initials||'??';
+  const color=fb?.color||'#3b82f6';
+  const name=fb?.name||'Loading…';
+  const spec=fb?.spec||'';
+  return`
+    <div class="phys-hero">
+      <div class="phys-avatar-lg" style="background:${color}22;color:${color}">${initials}</div>
+      <div class="phys-hero-info">
+        <div class="phys-hero-name">${name}</div>
+        <div class="phys-hero-spec">${spec}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:6px;">Loading profile…</div>
+      </div>
+    </div>`;
+}
+
+function renderFollowBtn(userId){
+  const btn=document.getElementById('follow-btn-'+userId);
+  if(!btn)return;
+  const isFollowing=followingIds.has(userId);
+  const isMe=currentUser?.id===userId;
+  if(isMe){btn.style.display='none';return;}
+  btn.className='follow-btn'+(isFollowing?' following':'');
+  btn.innerHTML=isFollowing?'✓ Following':'+ Follow';
+  btn.onclick=()=>toggleFollow(userId);
+}
+
+function renderPhysicianBody(profile, fallback, theirCases, respCount, userId){
+  const p=profile;
+  const name=p?`Dr. ${p.first_name||''} ${p.last_name||''}`.trim():(fallback?.name||'Dr. Unknown');
+  const specLabel={EP:'EP / Electrophysiology',IC:'Interventional Cardiology',HF:'Heart Failure',GEN:'General Cardiology',OTHER:'Other'}[p?.specialty||fallback?.spec?.split('·')[0]?.trim()]||fallback?.spec||'—';
+  const institution=p?.institution||fallback?.spec?.split('·')[1]?.trim()||'';
+  const color=fallback?.color||'#3b82f6';
+  const initials=p?((p.first_name||'?')[0]+(p.last_name||'?')[0]).toUpperCase():(fallback?.initials||'??');
+  const npiVerified=p?.npi_verified!==undefined?p.npi_verified:(fallback?.npiVerified||false);
+  const isMe=currentUser?.id===userId;
+  const isFollowing=followingIds.has(userId);
+  const totalVotes=theirCases.reduce((s,c)=>{const v=Array.isArray(c.votes)?c.votes.reduce((a,b)=>a+b,0):0;return s+v;},0);
+
+  const avatarHtml=p?.avatar_url
+    ?`<img src="${p.avatar_url}" alt="${name}">`
+    :`${initials}`;
+
+  const casesHtml=theirCases.length>0
+    ? theirCases.slice(0,4).map(c=>`
+        <div class="phys-case-item" onclick="closePhysicianProfile();setTimeout(()=>openCaseDetail(${c.id}),200)">
+          <div class="phys-case-q">${(c.q||'').substring(0,80)}${(c.q||'').length>80?'…':''}</div>
+          <div class="phys-case-meta">
+            <span class="spec-tag tag-${(c.spec||'gen').toLowerCase()}" style="font-size:9px;padding:1px 6px;">${c.spec||'GEN'}</span>
+            <span>${Array.isArray(c.votes)?c.votes.reduce((a,b)=>a+b,0):0} votes</span>
+            ${c.resolvedDx?`<span style="color:var(--green);">✓ ${c.resolvedDx}</span>`:''}
+          </div>
+        </div>`).join('')
+    : `<div style="font-size:12px;color:var(--text3);padding:10px 0;">No cases posted yet.</div>`;
+
+  return`
+    <div class="phys-hero">
+      <div class="phys-avatar-lg" style="background:${color}22;color:${color}">${avatarHtml}</div>
+      <div class="phys-hero-info">
+        <div class="phys-hero-name">${name}</div>
+        <div class="phys-hero-spec">${specLabel}</div>
+        ${institution?`<div class="phys-hero-institution">🏥 ${institution}</div>`:''}
+        <div class="phys-hero-badges" style="margin-top:8px;">
+          ${npiVerified?'<span class="v-chip verified" style="font-size:10px;">MD ✓ Verified</span>':'<span style="font-size:10px;color:var(--amber);background:var(--amberbg);padding:2px 8px;border-radius:999px;border:1px solid rgba(245,158,11,.2);">Unverified</span>'}
+        </div>
+      </div>
+      ${!isMe?`<button class="follow-btn${isFollowing?' following':''}" id="follow-btn-${userId}" onclick="toggleFollow('${userId}')">${isFollowing?'✓ Following':'+ Follow'}</button>`:'<span style="font-size:11px;color:var(--text3);align-self:flex-start;padding-top:4px;">You</span>'}
+    </div>
+
+    <div class="phys-stats-row">
+      <div class="phys-stat">
+        <div class="phys-stat-val">${theirCases.length}</div>
+        <div class="phys-stat-lbl">Cases posted</div>
+      </div>
+      <div class="phys-stat">
+        <div class="phys-stat-val">${respCount}</div>
+        <div class="phys-stat-lbl">Responses given</div>
+      </div>
+      <div class="phys-stat">
+        <div class="phys-stat-val">${totalVotes}</div>
+        <div class="phys-stat-lbl">Votes received</div>
+      </div>
+    </div>
+
+    <div class="phys-section-title">Recent Cases</div>
+    ${casesHtml}
+
+    ${!isMe?`<div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);display:flex;justify-content:center;">
+      <button class="follow-btn${isFollowing?' following':''}" style="width:180px;justify-content:center;" onclick="toggleFollow('${userId}')">${isFollowing?'✓ Following':'+ Follow this physician'}</button>
+    </div>`:''}
+  `;
+}
+
+function closePhysicianProfile(){
+  document.getElementById('physician-overlay').classList.remove('open');
+  _currentPhysicianId=null;
+  if(!document.getElementById('case-detail-overlay').classList.contains('open')&&
+     !document.getElementById('post-modal-overlay').classList.contains('open')&&
+     !document.getElementById('profile-overlay').classList.contains('open'))
+    document.body.style.overflow='';
+}
+
+function handlePhysicianOverlayClick(e){
+  if(e.target===document.getElementById('physician-overlay'))closePhysicianProfile();
+}
+
+// Helper — open physician profile from a case's author info
+function openAuthorProfile(e, authorId, fallbackData){
+  e.stopPropagation();
+  if(!authorId||authorId==='demo')return;
+  openPhysicianProfile(authorId, fallbackData);
+}
+
 
 async function toggleSaveCurrent(){
   if(!cdCaseId)return;
@@ -3745,6 +4077,8 @@ function openCaseDetail(id){
   av.textContent=c.authorInit;
   av.style.background=c.authorColor+'22';
   av.style.color=c.authorColor;
+  av.style.cursor='pointer';
+  av.onclick=(e)=>openAuthorProfile(e,c.authorId,{name:c.author,spec:c.authorSpec,initials:c.authorInit,color:c.authorColor,npiVerified:c.authorNpiVerified});
   document.getElementById('cd-poster-name').textContent=c.author;
   document.getElementById('cd-poster-spec').textContent=c.authorSpec;
   document.getElementById('cd-poster-time').textContent=c.time;
@@ -3752,6 +4086,8 @@ function openCaseDetail(id){
   // Author verified badge
   const posterName=document.getElementById('cd-poster-name');
   if(posterName){
+    posterName.className='author-link';
+    posterName.onclick=(e)=>openAuthorProfile(e,c.authorId,{name:c.author,spec:c.authorSpec,initials:c.authorInit,color:c.authorColor,npiVerified:c.authorNpiVerified});
     posterName.innerHTML=`${c.author} ${c.authorNpiVerified?'<span class="v-chip verified" style="font-size:9px;">MD ✓</span>':''}`;
   }
 
@@ -3895,28 +4231,28 @@ function renderCDThread(c){
     return;
   }
   thread.innerHTML=c.responses.map((r,i)=>{
-    let initials,name,spec,color,npiVerified,specialty;
+    let initials,name,spec,color,npiVerified,specialty,authorId;
     if(r.ph!==undefined&&r.ph>=0){
       const ph=PHYSICIANS[r.ph%PHYSICIANS.length];
       initials=ph.init;name=ph.name;spec=ph.spec;color=ph.color;
-      npiVerified=ph.npiVerified||true;specialty=ph.specialty||'EP';
+      npiVerified=ph.npiVerified||true;specialty=ph.specialty||'EP';authorId=null;
     } else {
       initials=r.initials||'??';name=r.name||'Dr. Unknown';spec=r.spec||'—';
       color=r.color||'#3b82f6';npiVerified=r.npiVerified||false;specialty=r.specialty||'';
+      authorId=r.authorId||null;
     }
     const pips=[1,2,3,4,5].map(n=>`<div class="cd-pip ${n<=r.conf?'on':''}"></div>`).join('');
-    const verifiedChip=npiVerified
-      ?`<span class="v-chip verified">MD ✓</span>`
-      :``;
+    const verifiedChip=npiVerified?`<span class="v-chip verified">MD ✓</span>`:``;
     const specKey=(specialty||'').toUpperCase();
     const specPillClass={EP:'rsp-ep',IC:'rsp-ic',HF:'rsp-hf',GEN:'rsp-gen'}[specKey]||'rsp-other';
     const specPill=specialty?`<span class="resp-spec-pill ${specPillClass}">${specKey||specialty}</span>`:'';
+    const profileAttrs=authorId?`onclick="openAuthorProfile(event,'${authorId}',{name:'${name.replace(/'/g,"\\'")}',spec:'${spec.replace(/'/g,"\\'")}',initials:'${initials}',color:'${color}',npiVerified:${!!npiVerified}})" style="cursor:pointer;"`:'';
     return`<div class="cd-resp-item" style="animation-delay:${i*.05}s">
       <div class="cd-resp-header">
-        <div class="avatar sm" style="background:${color}22;color:${color}">${initials}</div>
+        <div class="avatar sm author-link" style="background:${color}22;color:${color}" ${profileAttrs}>${initials}</div>
         <div style="flex:1;min-width:0;">
           <div class="cd-resp-name" style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
-            ${name}${verifiedChip}
+            <span ${profileAttrs} class="${authorId?'author-link':''}">${name}</span>${verifiedChip}
           </div>
           <div style="display:flex;align-items:center;gap:5px;margin-top:2px;">
             ${specPill}<span class="cd-resp-spec">${spec}</span>
@@ -4264,10 +4600,18 @@ function renderProfile(){
       <div class="profile-npi-result" id="profile-npi-result"></div>
     </div>` : '';
 
+  const avatarDisplay=p?.avatar_url
+    ?`<img src="${p.avatar_url}" alt="${displayName}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`
+    :initials;
+
   body.innerHTML=`
     <!-- Hero -->
     <div class="profile-hero">
-      <div class="profile-hero-avatar" style="color:#3b82f6">${initials}</div>
+      <div class="profile-avatar-wrap" onclick="document.getElementById('avatar-file-input').click()" title="Change profile photo">
+        <div class="profile-hero-avatar-img" style="background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:white">${avatarDisplay}</div>
+        <div class="avatar-edit-overlay">📷</div>
+        <input type="file" id="avatar-file-input" accept="image/*" style="display:none;" onchange="handleAvatarUpload(this)">
+      </div>
       <div class="profile-hero-info">
         <div class="profile-hero-name">${displayName}</div>
         <div class="profile-hero-spec">${specLabel}${p?.institution?` · ${p.institution}`:''}</div>
@@ -4385,6 +4729,42 @@ async function saveProfile(){
   if(btn){btn.disabled=false;btn.textContent='Save changes';}
 }
 
+async function handleAvatarUpload(input){
+  if(!input.files||!input.files[0])return;
+  if(!supabaseClient||!currentUser){showToast('Sign in to upload a photo',true);return;}
+  const file=input.files[0];
+  if(!file.type.startsWith('image/')){showToast('Please select an image file',true);return;}
+  if(file.size>5*1024*1024){showToast('Photo must be under 5MB',true);return;}
+
+  showToast('Uploading photo…');
+  try{
+    const ext=file.name.split('.').pop().toLowerCase()||'jpg';
+    const safeExt=['jpg','jpeg','png','webp','gif'].includes(ext)?ext:'jpg';
+    const path=`avatars/${currentUser.id}/avatar.${safeExt}`;
+
+    const{error:uploadError}=await supabaseClient.storage
+      .from('avatars')
+      .upload(path, file, {contentType:file.type, upsert:true});
+
+    if(uploadError)throw new Error(uploadError.message);
+
+    const{data:{publicUrl}}=supabaseClient.storage.from('avatars').getPublicUrl(path);
+    // Bust cache
+    const avatarUrl=publicUrl+'?t='+Date.now();
+
+    const{error:dbError}=await supabaseClient.from('profiles')
+      .update({avatar_url:publicUrl}).eq('id',currentUser.id);
+    if(dbError)throw new Error(dbError.message);
+
+    currentProfile={...currentProfile,avatar_url:publicUrl};
+    showToast('Profile photo updated ✓');
+    renderProfile();
+    updateUserUI();
+  }catch(e){
+    showToast('Upload failed: '+e.message,true);
+  }
+}
+
 async function profileVerifyNPI(){
   const input=document.getElementById('profile-npi-input');
   const btn=document.getElementById('profile-npi-btn');
@@ -4445,6 +4825,7 @@ document.getElementById('profile-overlay')?.addEventListener('click',function(e)
 // Unified Escape key handler — outermost overlay first
 document.addEventListener('keydown',function(e){
   if(e.key!=='Escape')return;
+  if(document.getElementById('physician-overlay')?.classList.contains('open')){closePhysicianProfile();return;}
   if(document.getElementById('profile-overlay')?.classList.contains('open')){closeProfile();return;}
   if(document.getElementById('case-detail-overlay')?.classList.contains('open')){closeCaseDetail();return;}
   if(document.getElementById('post-modal-overlay')?.classList.contains('open')){closePostModal();return;}
@@ -4993,6 +5374,7 @@ function toggleTheme(){
     await loadCasesFromDB();
     await loadRespondedCaseIds();
     await loadSavedCaseIds();
+    await loadFollowing();
     await loadNotificationsFromDB();
     subscribeToRealtime();
     subscribeToNotifications();
@@ -5025,6 +5407,7 @@ function toggleTheme(){
         await loadCasesFromDB();
         await loadRespondedCaseIds();
         await loadSavedCaseIds();
+        await loadFollowing();
         await loadNotificationsFromDB();
         subscribeToRealtime();
         subscribeToNotifications();
@@ -5038,6 +5421,7 @@ function toggleTheme(){
         if(presenceChannel){try{supabaseClient.removeChannel(presenceChannel);}catch(e){}presenceChannel=null;}
         currentUser=null;currentProfile=null;
         savedCaseIds.clear();respondedDxMap.clear();respondedCaseIds.clear();
+        followingIds.clear();
         notifications=[];updateNotifBadge();
         showModal('auth-modal');
       }
@@ -5077,6 +5461,19 @@ function toggleTheme(){
     <div class="post-modal-footer">
       <button class="post-modal-cancel" onclick="closeEditCase()">Cancel</button>
       <button class="submit-case-btn" id="edit-submit-btn" onclick="submitEditCase()" style="width:auto;margin-top:0;padding:10px 28px;">Save changes →</button>
+    </div>
+  </div>
+</div>
+
+<!-- PHYSICIAN PUBLIC PROFILE MODAL -->
+<div class="physician-overlay" id="physician-overlay" onclick="handlePhysicianOverlayClick(event)">
+  <div class="physician-modal">
+    <div class="physician-modal-header">
+      <div style="font-family:var(--font-serif);font-size:16px;color:var(--text2);">Physician Profile</div>
+      <div class="physician-modal-close" onclick="closePhysicianProfile()">✕</div>
+    </div>
+    <div class="physician-modal-body" id="physician-modal-body">
+      <div style="text-align:center;padding:40px;color:var(--text3);font-size:13px;">Loading…</div>
     </div>
   </div>
 </div>
