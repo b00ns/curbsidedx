@@ -2680,6 +2680,8 @@ function subscribeToRealtime(){
     else if(payload.eventType==='UPDATE'){const idx=cases.findIndex(c=>c.id===payload.new.id);if(idx>=0){cases[idx]={...cases[idx],...mapDBCase(payload.new)};renderFeed();}}
   }).subscribe();
   supabaseClient.channel('responses').on('postgres_changes',{event:'INSERT',schema:'public',table:'responses'},payload=>{
+    // Skip if this insert is from the current user — already applied optimistically in submitCDResponse
+    if(currentUser && payload.new.author_id===currentUser.id) return;
     const caseId=payload.new.case_id,c=cases.find(x=>x.id===caseId);
     if(c){c.responses.unshift(mapDBResponse(payload.new));const dxIdx=c.ddx.findIndex(d=>d===payload.new.diagnosis);if(dxIdx>=0)c.votes[dxIdx]++;renderFeed();renderLeaderboard();if(selectedCaseId===caseId)renderResponses(c);}
   }).subscribe();
@@ -2750,7 +2752,8 @@ async function loadCasesFromDB(){
   cases=caseRows.map(row=>{const c=mapDBCase(row);c.responses=(responseRows||[]).filter(r=>r.case_id===row.id).map(mapDBResponse);return c;});
   renderFeed();
   renderLeaderboard();
-  updateStatCounters();
+  // Note: updateStatCounters() is NOT called here — respondedCaseIds and savedCaseIds
+  // are not yet loaded at this point. It's called from the init sequence after all loads complete.
 }
 async function persistCase(caseData){
   if(!supabaseClient||!currentUser)return null;
@@ -2779,8 +2782,9 @@ async function persistResponse(caseId,dx,conf,note){
     npi_verified:p.npi_verified||false,
     diagnosis:dx,confidence:conf,note
   });
+  // Sync the authoritative vote array to DB (uses the already-incremented local c.votes)
   const c=cases.find(x=>x.id===caseId);
-  if(c){const uv=[...c.votes],idx=c.ddx.indexOf(dx);if(idx>=0)uv[idx]++;await supabaseClient.from('cases').update({votes:uv,total_votes:uv.reduce((a,b)=>a+b,0)}).eq('id',caseId);}
+  if(c){await supabaseClient.from('cases').update({votes:c.votes,total_votes:c.votes.reduce((a,b)=>a+b,0)}).eq('id',caseId);}
   // Notify case author
   await notifyNewResponse(caseId, name, dx);
 }
@@ -4970,9 +4974,14 @@ function toggleTheme(){
     return;
   }
 
+  // Show auth modal immediately — hide it below if a persisted session is found.
+  // This ensures new/logged-out users see it right away without hunting through menus.
+  showModal('auth-modal');
+
   try{
     const{data:{session},error}=await supabaseClient.auth.getSession();
     if(!error && session && session.user){
+      hideModal('auth-modal'); // valid session — dismiss and load app
       currentUser=session.user;
       await fetchProfile();
       updateUserUI();
@@ -4988,12 +4997,10 @@ function toggleTheme(){
       updateNPINudge();
       checkAndShowWelcome();
     } else {
-      showModal('auth-modal');
-      renderFeed();
+      renderFeed(); // render empty feed behind modal
     }
   }catch(e){
     console.error('Session check failed:',e);
-    showModal('auth-modal');
     renderFeed();
   }
 
