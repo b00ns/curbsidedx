@@ -221,14 +221,15 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text);overflo
   display:flex;align-items:center;justify-content:space-between;
   padding:10px 14px;background:var(--bg3);border-bottom:1px solid var(--border);
 }
-/* Video player — matches ECG image max-height:320px */
+/* Video player — same dimensions as ECG image block */
 .cd-video-player-wrap{
-  width:100%;
-  background:#000;
+  width:100%;background:#000;
+  min-height:260px;
 }
 .cd-video-player{
   width:100%;display:block;
-  max-height:320px;object-fit:contain;background:#000;
+  min-height:260px;max-height:380px;
+  object-fit:contain;background:#000;
 }
 /* PHI video warning */
 .phi-video-warning{
@@ -661,8 +662,9 @@ input::placeholder{color:var(--text3);}
   .cd-dx-option{padding:10px 12px;}
   .cd-dx-opt-label{font-size:13px;}
   .cd-submit-btn{padding:12px;font-size:13px;font-weight:600;border-radius:10px;}
-  /* Video — same max-height as ECG on mobile */
-  .cd-video-player{max-height:240px;}
+  /* Video — same height as ECG on mobile */
+  .cd-video-player-wrap{min-height:200px;}
+  .cd-video-player{min-height:200px;max-height:260px;}
 }
 @media(max-width:600px){
   .cd-question-text{font-size:12.5px;}
@@ -2716,6 +2718,7 @@ async function loadCasesFromDB(){
   cases=caseRows.map(row=>{const c=mapDBCase(row);c.responses=(responseRows||[]).filter(r=>r.case_id===row.id).map(mapDBResponse);return c;});
   renderFeed();
   renderLeaderboard();
+  updateStatCounters();
 }
 async function persistCase(caseData){
   if(!supabaseClient||!currentUser)return null;
@@ -2883,10 +2886,12 @@ function renderFeed(){
     }
   } else {
     // Live feed — apply specialty and status filters
+    // Default: exclude resolved cases (they live in the Resolved filter tab)
     if(currentSpec) filtered=cases.filter(c=>c.spec===currentSpec);
     if(currentFilter==='open') filtered=filtered.filter(c=>getCaseStatus(c)==='open');
     else if(currentFilter==='closing') filtered=filtered.filter(c=>getCaseStatus(c)==='closing');
     else if(currentFilter==='resolved') filtered=filtered.filter(c=>getCaseStatus(c)==='resolved');
+    else filtered=filtered.filter(c=>getCaseStatus(c)!=='resolved'); // 'all' = active only
   }
 
   feed.innerHTML='';
@@ -3047,7 +3052,7 @@ async function submitResponse(){
   const note=document.getElementById('resp-note').value,p=currentProfile;
   const name=p?`Dr. ${p.first_name?p.first_name[0]+'. ':''}${p.last_name||''}`:'Dr. You';
   c.responses.unshift({ph:-1,initials:p?((p.first_name||'?')[0]+(p.last_name||'?')[0]).toUpperCase():'ME',name,spec:p?`${p.specialty}·${p.institution}`:'EP',color:'#3b82f6',dx:selectedDx,conf:selectedConf||3,note,time:'just now'});
-  myResponses++;document.getElementById('s-resp').textContent=myResponses;
+  myResponses++;
   document.getElementById('resp-note').value='';
   selectedDx=null;selectedConf=0;
   document.querySelectorAll('.conf-dot').forEach(d=>d.classList.remove('filled'));
@@ -3056,6 +3061,7 @@ async function submitResponse(){
   respondedCaseIds.add(selectedCaseId);
   respondedDxMap.set(selectedCaseId,selectedDx);
   renderFeed();renderResponses(c);
+  updateStatCounters();
   showToast('Response submitted — thanks for contributing!');
   if(isMobile())closeRPDrawer();
 }
@@ -3133,7 +3139,6 @@ async function submitCase(){
 
     cases.unshift(newCase);
     myCases++;
-    document.getElementById('s-cases').textContent=myCases;
 
     // Reset form
     document.getElementById('q-text').value='';
@@ -3156,6 +3161,7 @@ async function submitCase(){
     hidePHIAlert();
 
     renderFeed();
+    updateStatCounters();
     closePostModal();
     showToast('Case posted — community will respond shortly');
 
@@ -3487,39 +3493,45 @@ function renderLeaderboard(){
 }
 
 function renderPersonalStats(){
+  // Contribution section removed — stats live in the four stat boxes above
   const el=document.getElementById('personal-stats-section');
-  if(!el||!currentProfile)return;
+  if(el) el.innerHTML='';
+}
 
+function updateStatCounters(){
+  if(!currentUser&&!demoMode) return;
   const uid=currentUser?.id||'demo';
-  const myCasesList=cases.filter(c=>c.authorId===uid||
-    (currentProfile&&c.author&&c.author.includes(currentProfile.last_name||'__none__')));
-  const myRespCount=respondedCaseIds.size;
-  const totalCases=cases.length||1;
-  const totalResps=cases.reduce((acc,c)=>acc+c.responses.length,0)||1;
 
-  // Specialty breakdown of my responses
-  const mySpecCounts={EP:0,IC:0,HF:0,GEN:0};
+  // Cases posted — count from cases array
+  const myCasesCount=cases.filter(c=>
+    c.authorId===uid||
+    (currentProfile&&c.author&&c.author.includes(currentProfile?.last_name||'__none__'))
+  ).length;
+  const sCases=document.getElementById('s-cases');
+  if(sCases) sCases.textContent=myCasesCount;
+  myCases=myCasesCount;
+
+  // Responses given — use the respondedCaseIds Set which is synced from DB
+  const sResp=document.getElementById('s-resp');
+  if(sResp) sResp.textContent=respondedCaseIds.size;
+  myResponses=respondedCaseIds.size;
+
+  // Cases saved — use savedCaseIds Set synced from DB
+  const sSaved=document.getElementById('s-saved');
+  if(sSaved) sSaved.textContent=savedCaseIds.size;
+
+  // Physicians online — count distinct authors who posted/responded in last 24h
+  const cutoff=Date.now()-24*60*60*1000;
+  const activeUids=new Set();
   cases.forEach(c=>{
-    if(respondedCaseIds.has(c.id))mySpecCounts[c.spec]=(mySpecCounts[c.spec]||0)+1;
+    if(c.authorId&&c.createdAt&&new Date(c.createdAt).getTime()>cutoff) activeUids.add(c.authorId);
+    c.responses.forEach(r=>{ if(r.authorId) activeUids.add(r.authorId); });
   });
-  const topSpec=Object.entries(mySpecCounts).sort((a,b)=>b[1]-a[1])[0];
-
-  el.innerHTML=`
-    <div class="section-label" style="margin-top:0;">Your contribution</div>
-    <div class="personal-stat-bar">
-      <div class="psb-header"><span class="psb-label">Cases posted</span><span class="psb-val">${myCasesList.length}</span></div>
-      <div class="psb-track"><div class="psb-fill" style="width:${Math.min(100,myCasesList.length/Math.max(totalCases,1)*100*3)}%"></div></div>
-    </div>
-    <div class="personal-stat-bar">
-      <div class="psb-header"><span class="psb-label">Responses given</span><span class="psb-val">${myRespCount}</span></div>
-      <div class="psb-track"><div class="psb-fill" style="width:${Math.min(100,myRespCount/Math.max(totalResps,1)*100*5)}%"></div></div>
-    </div>
-    <div class="personal-stat-bar">
-      <div class="psb-header"><span class="psb-label">Cases saved</span><span class="psb-val">${savedCaseIds.size}</span></div>
-      <div class="psb-track"><div class="psb-fill" style="width:${Math.min(100,savedCaseIds.size*10)}%;background:var(--amber)"></div></div>
-    </div>
-    ${topSpec&&topSpec[1]>0?`<div style="font-size:11px;color:var(--text3);margin-top:4px;">Most active in <span style="color:var(--accent);font-weight:500;">${topSpec[0]}</span> cases</div>`:''}
-  `;
+  // Count total distinct verified authors across all cases as a proxy for online community size
+  const allAuthors=new Set(cases.map(c=>c.authorId).filter(Boolean));
+  const onlineCount=Math.max(activeUids.size, allAuthors.size>0 ? allAuthors.size : 0);
+  const sOnline=document.getElementById('s-online');
+  if(sOnline) sOnline.textContent=onlineCount||'—';
 }
 
 async function loadRespondedCaseIds(){
@@ -3560,6 +3572,7 @@ async function toggleSave(caseId,e){
     showToast('Case saved ★');
   }
   document.getElementById('s-saved').textContent=savedCaseIds.size;
+  updateStatCounters();
   renderFeed();
   // If in saved view and we just unsaved, re-render immediately
   if(currentView==='saved')renderFeed();
@@ -3921,7 +3934,6 @@ async function submitCDResponse(){
     npiVerified:p?.npi_verified||false,specialty:p?.specialty||''
   });
   myResponses++;
-  if(document.getElementById('s-resp'))document.getElementById('s-resp').textContent=myResponses;
   if(supabaseClient&&currentUser)await persistResponse(cdCaseId,cdSelectedDx,cdSelectedConf||3,note);
   respondedCaseIds.add(cdCaseId);
   respondedDxMap.set(cdCaseId,cdSelectedDx);
@@ -3929,6 +3941,7 @@ async function submitCDResponse(){
   renderCDRespondSection(c);
   renderCDThread(c);
   renderFeed();
+  updateStatCounters();
   showToast('Response submitted — thanks for contributing!');
 }
 
@@ -4165,6 +4178,7 @@ async function deleteCase(){
     if(idx>=0){cases.splice(idx,1);if(myCases>0)myCases--;}
     closeCaseDetail();
     renderFeed();
+    updateStatCounters();
     showToast('Case deleted.');
   }catch(err){
     showToast('Failed to delete: '+err.message,true);
@@ -4956,6 +4970,7 @@ function toggleTheme(){
       subscribeToNotifications();
       renderFeed();
       renderLeaderboard();
+      updateStatCounters();
       updateNPINudge();
       checkAndShowWelcome();
     } else {
@@ -4989,6 +5004,7 @@ function toggleTheme(){
         subscribeToRealtime();
         subscribeToNotifications();
         renderLeaderboard();
+        updateStatCounters();
         updateNPINudge();
         checkAndShowWelcome();
       } else if(event==='SIGNED_OUT'){
