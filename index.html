@@ -2097,6 +2097,7 @@ async function signIn(){
     subscribeToNotifications();
     renderFeed();
     renderLeaderboard();
+    updateStatCounters();
     updateNPINudge();
     showToast('Welcome back, Dr. '+(currentProfile?.last_name||''));
   }catch(e){
@@ -2749,7 +2750,18 @@ async function loadCasesFromDB(){
   console.log('loadCasesFromDB — loaded',caseRows.length,'cases');
   const{data:responseRows,error:respError}=await supabaseClient.from('responses').select('*').order('created_at',{ascending:false});
   if(respError)console.warn('loadCasesFromDB — responses error:',respError);
-  cases=caseRows.map(row=>{const c=mapDBCase(row);c.responses=(responseRows||[]).filter(r=>r.case_id===row.id).map(mapDBResponse);return c;});
+  cases=caseRows.map(row=>{
+    const c=mapDBCase(row);
+    const caseResponses=(responseRows||[]).filter(r=>r.case_id===row.id).map(mapDBResponse);
+    c.responses=caseResponses;
+    // Always recompute votes from actual response rows — never trust the cached votes column
+    // This fixes any double-count drift that accumulated in the DB
+    const recomputedVotes=(row.ddx||[]).map(dx=>
+      (responseRows||[]).filter(r=>r.case_id===row.id && r.diagnosis===dx).length
+    );
+    c.votes=recomputedVotes;
+    return c;
+  });
   renderFeed();
   renderLeaderboard();
   // Note: updateStatCounters() is NOT called here — respondedCaseIds and savedCaseIds
@@ -3571,7 +3583,7 @@ async function loadSavedCaseIds(){
   if(!supabaseClient||!currentUser)return;
   const{data}=await supabaseClient.from('saved_cases').select('case_id').eq('user_id',currentUser.id);
   if(data)data.forEach(r=>savedCaseIds.add(r.case_id));
-  document.getElementById('s-saved').textContent=savedCaseIds.size;
+  // DOM update handled by updateStatCounters() after all loads complete
 }
 
 async function toggleSaveCurrent(){
@@ -4974,34 +4986,36 @@ function toggleTheme(){
     return;
   }
 
-  // Show auth modal immediately — hide it below if a persisted session is found.
-  // This ensures new/logged-out users see it right away without hunting through menus.
-  showModal('auth-modal');
-
+  // Check session first — only show auth modal if genuinely not logged in
+  let existingSession = null;
   try{
     const{data:{session},error}=await supabaseClient.auth.getSession();
-    if(!error && session && session.user){
-      hideModal('auth-modal'); // valid session — dismiss and load app
-      currentUser=session.user;
-      await fetchProfile();
-      updateUserUI();
-      await loadCasesFromDB();
-      await loadRespondedCaseIds();
-      await loadSavedCaseIds();
-      await loadNotificationsFromDB();
-      subscribeToRealtime();
-      subscribeToNotifications();
-      renderFeed();
-      renderLeaderboard();
-      updateStatCounters();
-      updateNPINudge();
-      checkAndShowWelcome();
-    } else {
-      renderFeed(); // render empty feed behind modal
-    }
+    if(!error && session && session.user) existingSession = session;
   }catch(e){
     console.error('Session check failed:',e);
+  }
+
+  if(existingSession){
+    // Valid persisted session — load app silently, no modal
+    currentUser=existingSession.user;
+    await fetchProfile();
+    updateUserUI();
+    await loadCasesFromDB();
+    await loadRespondedCaseIds();
+    await loadSavedCaseIds();
+    await loadNotificationsFromDB();
+    subscribeToRealtime();
+    subscribeToNotifications();
     renderFeed();
+    renderLeaderboard();
+    updateStatCounters();
+    updateNPINudge();
+    checkAndShowWelcome();
+  } else {
+    // No session — show modal immediately, render feed behind it
+    renderFeed();
+    // Use rAF to ensure DOM has painted before showing modal
+    requestAnimationFrame(()=>{ showModal('auth-modal'); });
   }
 
   // Wire file input - simple direct approach
@@ -5024,9 +5038,11 @@ function toggleTheme(){
         await loadNotificationsFromDB();
         subscribeToRealtime();
         subscribeToNotifications();
+        renderFeed();
         renderLeaderboard();
         updateStatCounters();
         updateNPINudge();
+        checkAndShowWelcome();
         checkAndShowWelcome();
       } else if(event==='SIGNED_OUT'){
         if(presenceChannel){try{supabaseClient.removeChannel(presenceChannel);}catch(e){}presenceChannel=null;}
@@ -5038,12 +5054,6 @@ function toggleTheme(){
     });
   }
 
-  // Force show auth modal if still not signed in after 2 seconds
-  setTimeout(()=>{
-    if(!currentUser && !demoMode){
-      showModal('auth-modal');
-    }
-  }, 2000);
 })();
 </script>
 <!-- EDIT CASE MODAL -->
