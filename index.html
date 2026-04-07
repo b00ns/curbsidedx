@@ -207,7 +207,7 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text);overflo
   border-radius:var(--r);overflow:hidden;margin-bottom:12px;
   border:1px solid var(--border);background:#111;position:relative;
 }
-.case-video-wrap video{width:100%;display:block;max-height:180px;object-fit:contain;}
+.case-video-wrap video{width:100%;display:block;max-height:220px;object-fit:contain;}
 .case-video-wrap .ecg-overlay{
   position:absolute;top:0;left:0;right:0;
   display:flex;align-items:flex-start;justify-content:space-between;
@@ -221,15 +221,14 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text);overflo
   display:flex;align-items:center;justify-content:space-between;
   padding:10px 14px;background:var(--bg3);border-bottom:1px solid var(--border);
 }
-/* Video player — 16:9 aspect ratio container so it matches ECG panel proportions */
+/* Video player — matches ECG image max-height:320px */
 .cd-video-player-wrap{
-  position:relative;width:100%;
-  padding-bottom:56.25%;/* 16:9 */
+  width:100%;
   background:#000;
 }
 .cd-video-player{
-  position:absolute;inset:0;width:100%;height:100%;
-  display:block;object-fit:contain;background:#000;
+  width:100%;display:block;
+  max-height:320px;object-fit:contain;background:#000;
 }
 /* PHI video warning */
 .phi-video-warning{
@@ -662,8 +661,8 @@ input::placeholder{color:var(--text3);}
   .cd-dx-option{padding:10px 12px;}
   .cd-dx-opt-label{font-size:13px;}
   .cd-submit-btn{padding:12px;font-size:13px;font-weight:600;border-radius:10px;}
-  /* Video — natural 16:9 on mobile */
-  .cd-video-player-wrap{padding-bottom:56.25%;}
+  /* Video — same max-height as ECG on mobile */
+  .cd-video-player{max-height:240px;}
 }
 @media(max-width:600px){
   .cd-question-text{font-size:12.5px;}
@@ -2785,7 +2784,7 @@ function renderECGThumb(c){
     const vid=`vid-${c.id}`;
     return`<div class="case-video-wrap">
       <video id="${vid}" src="${c.videoUrl}#t=0.5" muted playsinline preload="metadata"
-        style="width:100%;max-height:180px;display:block;object-fit:contain;background:#111;"
+        style="width:100%;max-height:220px;display:block;object-fit:contain;background:#111;"
         onloadeddata="this.currentTime=0.5"
         onmouseenter="this.play()" onmouseleave="this.pause();this.currentTime=0.5"></video>
       <div class="ecg-overlay">
@@ -2948,7 +2947,7 @@ function renderFeed(){
           <div class="case-sub">${c.authorSpec}</div>
         </div>
         <div class="case-time">${formatCaseTime(c)}</div>
-        <button class="bookmark-btn${isSaved?' saved':''}" data-cid="${c.id}" onclick="toggleSave(${c.id},event)" title="${isSaved?'Remove bookmark':'Save case'}">${isSaved?'★':'☆'}</button>
+        <button class="bookmark-btn${isSaved?' saved':''}" data-cid="${c.id}" onclick="toggleSave('${c.id}',event)" title="${isSaved?'Remove bookmark':'Save case'}">${isSaved?'★':'☆'}</button>
       </div>
       <div style="margin-bottom:10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;"><span class="spec-tag ${tagClass}">${c.spec}</span>${countdownHtml}</div>
       ${viewExtra?`<div style="margin-bottom:10px;">${viewExtra}</div>`:''}
@@ -2962,7 +2961,7 @@ function renderFeed(){
       <div class="case-footer">
         <span class="cf-stat">💬 ${c.responses.length} notes</span>
         ${status==='resolved'?'<span class="cf-stat" style="color:var(--green);">✓ Resolved</span>':''}
-        <button class="respond-btn" onclick="event.stopPropagation();openCaseDetail(${c.id})">${status==='resolved'?'View →':'View & Respond →'}</button>
+        <button class="respond-btn" onclick="event.stopPropagation();openCaseDetail('${c.id}')">${status==='resolved'?'View →':'View & Respond →'}</button>
       </div>`;
     feed.appendChild(div);
   });
