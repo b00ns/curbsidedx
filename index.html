@@ -14,7 +14,8 @@ window._supabaseReady = (function(){
   try {
     window.supabaseClient = window.supabase.createClient(
       'https://ebzuytnzbwmzrrspmmqr.supabase.co',
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVienV5dG56YndtenJyc3BtbXFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5ODU5MzIsImV4cCI6MjA4OTU2MTkzMn0.2W5wY7EOhaZGnYwvHxQF9H9NowiwRJ53tCvB2HIDeXw'
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVienV5dG56YndtenJyc3BtbXFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5ODU5MzIsImV4cCI6MjA4OTU2MTkzMn0.2W5wY7EOhaZGnYwvHxQF9H9NowiwRJ53tCvB2HIDeXw',
+      {auth:{persistSession:true,autoRefreshToken:true,storageKey:'curbsidedx-auth',detectSessionInUrl:false}}
     );
     return true;
   } catch(e) { console.error('Supabase early init failed:', e); return false; }
@@ -333,11 +334,11 @@ input::placeholder{color:var(--text3);}
 @media(max-width:600px){.toast.show{transform:translateX(0) translateY(0);}}
 .toast-dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;}
 .toast-dot.error{background:var(--red);}
-.modal-overlay{position:fixed;inset:0;bottom:0;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);z-index:500;display:flex;align-items:center;justify-content:center;animation:fadein .2s ease;padding:16px;}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);backdrop-filter:blur(8px);z-index:500;display:flex;align-items:center;justify-content:center;animation:fadein .2s ease;padding:20px;}
 .modal-overlay.hidden{display:none!important;}
 @keyframes fadein{from{opacity:0;}to{opacity:1;}}
-.modal{background:var(--card);border:1px solid var(--border2);border-radius:18px;padding:32px;width:440px;max-width:calc(100vw - 32px);animation:slideUp .3s cubic-bezier(.4,0,.2,1);}
-@keyframes slideUp{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
+.modal{background:var(--card);border:1px solid var(--border2);border-radius:20px;padding:36px;width:100%;max-width:440px;animation:slideUp .3s cubic-bezier(.4,0,.2,1);box-shadow:0 24px 80px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.04);}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
 .modal-logo{font-family:var(--font-serif);font-size:22px;display:flex;align-items:center;gap:8px;margin-bottom:6px;}
 .modal-tagline{font-size:12px;color:var(--text3);margin-bottom:28px;}
 .modal-tabs{display:flex;gap:2px;background:var(--bg3);border-radius:var(--r);padding:3px;margin-bottom:24px;}
@@ -1257,7 +1258,7 @@ html[data-theme="light"] .topbar{background:var(--bg2);box-shadow:0 1px 0 var(--
 html[data-theme="light"] .right-panel{border-left:1px solid var(--border);}
 html[data-theme="light"] .ecg-svg-wrap,
 html[data-theme="light"] .cd-ecg-svg-full{background:var(--ecg-bg);}
-html[data-theme="light"] .modal{box-shadow:0 20px 60px rgba(0,0,0,.15);}
+html[data-theme="light"] .modal{box-shadow:0 24px 80px rgba(0,0,0,.18),0 0 0 1px rgba(0,0,0,.06);}
 html[data-theme="light"] .stat-box{box-shadow:var(--shadow-card);border-color:transparent;}
 html[data-theme="light"] .profile-shell,
 html[data-theme="light"] .welcome-modal,
@@ -1313,8 +1314,8 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
   .mnav-item{padding:9px 4px 14px;font-size:10px;}
   .mnav-icon{font-size:17px;}
   /* Auth modal — full screen overlay, modal card above nav */
-  .modal-overlay{padding:16px 12px 90px 12px;}
-  .modal{width:100%;max-width:420px;padding:24px 20px;border-radius:16px;max-height:calc(100dvh - 120px);overflow-y:auto;}
+  .modal-overlay{padding:16px;align-items:center;}
+  .modal{width:100%;max-width:420px;padding:28px 22px;border-radius:18px;max-height:90dvh;overflow-y:auto;}
   .modal-logo{font-size:20px;}
   /* Tour tooltip full-width */
   .tour-tooltip{width:calc(100vw - 32px);}
@@ -1486,12 +1487,12 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
       <div class="nav-item active" onclick="setNavView('feed',this)"><span class="nav-icon">⚡</span> Live feed<span class="nav-count" id="live-count" style="display:none;"></span></div>
       <div class="nav-item" onclick="setNavView('mycases',this)"><span class="nav-icon">📋</span> My cases<span class="nav-count" id="count-mycases" style="display:none;"></span></div>
       <div class="nav-item" onclick="setNavView('responded',this)"><span class="nav-icon">💬</span> Responded<span class="nav-count" id="count-responded" style="display:none;"></span></div>
+      <div class="nav-item" onclick="setNavView('saved',this)"><span class="nav-icon">★</span> Saved cases<span class="nav-count" id="count-saved" style="display:none;"></span></div>
       <div class="nav-section">Specialty</div>
       <div class="nav-item" onclick="filterSpec('EP',this)"><span class="nav-icon">〰</span> EP / Rhythm<span class="nav-badge" id="count-EP">0</span></div>
       <div class="nav-item" onclick="filterSpec('IC',this)"><span class="nav-icon">🫀</span> Interventional<span class="nav-count" id="count-IC">0</span></div>
       <div class="nav-item" onclick="filterSpec('HF',this)"><span class="nav-icon">💧</span> Heart Failure<span class="nav-count" id="count-HF">0</span></div>
       <div class="nav-item" onclick="filterSpec('GEN',this)"><span class="nav-icon">🩺</span> General Cards<span class="nav-count" id="count-GEN">0</span></div>
-      <div class="nav-item" onclick="setNavView('saved',this)"><span class="nav-icon">★</span> Saved cases<span class="nav-count" id="count-saved" style="display:none;"></span></div>
       <div class="nav-section" style="margin-top:auto;padding-top:12px;">Help</div>
       <div class="nav-item" onclick="startTour()" style="color:var(--text3);">
         <span class="nav-icon">🗺</span> Take the tour
@@ -1918,7 +1919,7 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
         <!-- Author-only controls — shown/hidden by renderCDAuthorControls() -->
         <div id="cd-author-controls" style="display:none;align-items:center;gap:6px;">
           <button class="cd-author-btn" id="cd-edit-btn" onclick="openEditCase()" title="Edit question">✏️ Edit</button>
-          <button class="cd-author-btn cd-delete-btn" id="cd-delete-btn" onclick="confirmDeleteCase()" title="Delete case">🗑</button>
+          <button class="cd-author-btn cd-delete-btn" id="cd-delete-btn" onclick="confirmDeleteCase()" title="Delete case">🗑 Delete</button>
         </div>
         <button class="bookmark-btn" id="cd-bookmark-btn" onclick="toggleSaveCurrent()" title="Save case" style="font-size:18px;color:var(--text3);">☆</button>
       </div>
@@ -2015,6 +2016,8 @@ const SUPABASE_URL='https://ebzuytnzbwmzrrspmmqr.supabase.co';
 // IMPORTANT: This must be the JWT anon key from Supabase dashboard → Settings → API
 // It starts with "eyJ..." — NOT the "sb_publishable_" format
 const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVienV5dG56YndtenJyc3BtbXFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5ODU5MzIsImV4cCI6MjA4OTU2MTkzMn0.2W5wY7EOhaZGnYwvHxQF9H9NowiwRJ53tCvB2HIDeXw';
+// Shared auth options — persist session across backgrounding/mobile switches
+const SUPABASE_AUTH_OPTS={auth:{persistSession:true,autoRefreshToken:true,storageKey:'curbsidedx-auth',detectSessionInUrl:false}};
 
 function initSupabase(){
   try{
@@ -2023,7 +2026,7 @@ function initSupabase(){
       supabaseClient = window.supabaseClient;
       return true;
     }
-    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_AUTH_OPTS);
     window.supabaseClient = supabaseClient;
     return true;
   }catch(e){
@@ -2076,7 +2079,8 @@ async function signIn(){
     // Always create a fresh client — avoids all scoping/race issues
     const sb=window.supabase.createClient(
       'https://ebzuytnzbwmzrrspmmqr.supabase.co',
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVienV5dG56YndtenJyc3BtbXFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5ODU5MzIsImV4cCI6MjA4OTU2MTkzMn0.2W5wY7EOhaZGnYwvHxQF9H9NowiwRJ53tCvB2HIDeXw'
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVienV5dG56YndtenJyc3BtbXFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5ODU5MzIsImV4cCI6MjA4OTU2MTkzMn0.2W5wY7EOhaZGnYwvHxQF9H9NowiwRJ53tCvB2HIDeXw',
+      {auth:{persistSession:true,autoRefreshToken:true,storageKey:'curbsidedx-auth',detectSessionInUrl:false}}
     );
     const{data,error}=await sb.auth.signInWithPassword({email,password});
     if(error){btn.disabled=false;btn.textContent='Sign in';showAuthError('si',error.message);return;}
@@ -2105,7 +2109,8 @@ async function signUp(){
     try{
       supabaseClient=window.supabase.createClient(
         'https://ebzuytnzbwmzrrspmmqr.supabase.co',
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVienV5dG56YndtenJyc3BtbXFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5ODU5MzIsImV4cCI6MjA4OTU2MTkzMn0.2W5wY7EOhaZGnYwvHxQF9H9NowiwRJ53tCvB2HIDeXw'
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVienV5dG56YndtenJyc3BtbXFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5ODU5MzIsImV4cCI6MjA4OTU2MTkzMn0.2W5wY7EOhaZGnYwvHxQF9H9NowiwRJ53tCvB2HIDeXw',
+        {auth:{persistSession:true,autoRefreshToken:true,storageKey:'curbsidedx-auth',detectSessionInUrl:false}}
       );
       window.supabaseClient=supabaseClient;
     }catch(e){ showAuthError('su','Connection error — please refresh and try again'); return; }
@@ -2667,6 +2672,7 @@ async function uploadToStorage(file){
 // ══════════════════════════════════════════════
 // REALTIME
 // ══════════════════════════════════════════════
+let presenceChannel=null;
 function subscribeToRealtime(){
   if(!supabaseClient)return;
   supabaseClient.channel('cases').on('postgres_changes',{event:'*',schema:'public',table:'cases'},payload=>{
@@ -2677,6 +2683,32 @@ function subscribeToRealtime(){
     const caseId=payload.new.case_id,c=cases.find(x=>x.id===caseId);
     if(c){c.responses.unshift(mapDBResponse(payload.new));const dxIdx=c.ddx.findIndex(d=>d===payload.new.diagnosis);if(dxIdx>=0)c.votes[dxIdx]++;renderFeed();renderLeaderboard();if(selectedCaseId===caseId)renderResponses(c);}
   }).subscribe();
+
+  // Presence — track real online users
+  if(presenceChannel){try{supabaseClient.removeChannel(presenceChannel);}catch(e){}}
+  presenceChannel=supabaseClient.channel('room:online',{config:{presence:{key:currentUser.id}}});
+  presenceChannel
+    .on('presence',{event:'sync'},()=>{
+      const state=presenceChannel.presenceState();
+      const count=Object.keys(state).length;
+      const el=document.getElementById('s-online');
+      if(el) el.textContent=count||1;
+    })
+    .on('presence',{event:'join'},()=>{
+      const state=presenceChannel.presenceState();
+      const el=document.getElementById('s-online');
+      if(el) el.textContent=Object.keys(state).length||1;
+    })
+    .on('presence',{event:'leave'},()=>{
+      const state=presenceChannel.presenceState();
+      const el=document.getElementById('s-online');
+      if(el) el.textContent=Object.keys(state).length||1;
+    })
+    .subscribe(async(status)=>{
+      if(status==='SUBSCRIBED'){
+        await presenceChannel.track({uid:currentUser.id,online_at:new Date().toISOString()});
+      }
+    });
 }
 function mapDBCase(row){
   const createdAt=row.created_at||null;
@@ -3520,18 +3552,8 @@ function updateStatCounters(){
   const sSaved=document.getElementById('s-saved');
   if(sSaved) sSaved.textContent=savedCaseIds.size;
 
-  // Physicians online — count distinct authors who posted/responded in last 24h
-  const cutoff=Date.now()-24*60*60*1000;
-  const activeUids=new Set();
-  cases.forEach(c=>{
-    if(c.authorId&&c.createdAt&&new Date(c.createdAt).getTime()>cutoff) activeUids.add(c.authorId);
-    c.responses.forEach(r=>{ if(r.authorId) activeUids.add(r.authorId); });
-  });
-  // Count total distinct verified authors across all cases as a proxy for online community size
-  const allAuthors=new Set(cases.map(c=>c.authorId).filter(Boolean));
-  const onlineCount=Math.max(activeUids.size, allAuthors.size>0 ? allAuthors.size : 0);
-  const sOnline=document.getElementById('s-online');
-  if(sOnline) sOnline.textContent=onlineCount||'—';
+  // Physicians online is managed by the Supabase Presence channel (subscribeToRealtime)
+  // — no update needed here
 }
 
 async function loadRespondedCaseIds(){
@@ -4060,16 +4082,13 @@ function renderCDAuthorControls(c){
   if(!isCurrentUserAuthor(c)){ctrl.style.display='none';return;}
   ctrl.style.display='flex';
 
-  // Delete only allowed if zero responses
   const deleteBtn=document.getElementById('cd-delete-btn');
   if(deleteBtn){
-    const hasResponses=c.responses&&c.responses.length>0;
-    deleteBtn.disabled=hasResponses;
-    deleteBtn.title=hasResponses
-      ? 'Cannot delete — case has responses. Resolve it instead.'
-      : 'Delete case (only available while no one has responded)';
-    deleteBtn.style.opacity=hasResponses?'0.4':'1';
-    deleteBtn.style.cursor=hasResponses?'not-allowed':'pointer';
+    // Delete is always available to the author — confirmed via dialog
+    deleteBtn.disabled=false;
+    deleteBtn.title='Delete this case';
+    deleteBtn.style.opacity='1';
+    deleteBtn.style.cursor='pointer';
   }
 }
 
@@ -4156,11 +4175,6 @@ async function submitEditCase(){
 function confirmDeleteCase(){
   const c=cases.find(x=>x.id===cdCaseId);
   if(!c||!isCurrentUserAuthor(c))return;
-  if(c.responses&&c.responses.length>0){
-    showToast('Cannot delete — this case has responses. Resolve it instead.',true);
-    return;
-  }
-  // Show inline confirm via toast-style prompt
   if(!confirm('Delete this case? This cannot be undone.'))return;
   deleteCase();
 }
@@ -4947,7 +4961,7 @@ function toggleTheme(){
   // Always create the Supabase client directly here — don't rely on initSupabase
   // This avoids any race condition with the CDN script
   try{
-    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_AUTH_OPTS);
   }catch(e){
     console.error('Supabase client creation failed:', e);
     useDemoMode();
@@ -5008,6 +5022,7 @@ function toggleTheme(){
         updateNPINudge();
         checkAndShowWelcome();
       } else if(event==='SIGNED_OUT'){
+        if(presenceChannel){try{supabaseClient.removeChannel(presenceChannel);}catch(e){}presenceChannel=null;}
         currentUser=null;currentProfile=null;
         savedCaseIds.clear();respondedDxMap.clear();respondedCaseIds.clear();
         notifications=[];updateNotifBadge();
