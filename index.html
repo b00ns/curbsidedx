@@ -4738,31 +4738,53 @@ async function handleAvatarUpload(input){
   if(file.size>5*1024*1024){showToast('Photo must be under 5MB',true);return;}
 
   showToast('Uploading photo…');
+
+  // Show immediate local preview while uploading
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const avatarWrap=document.querySelector('.profile-hero-avatar-img');
+    if(avatarWrap) avatarWrap.innerHTML=`<img src="${e.target.result}" alt="Avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+  };
+  reader.readAsDataURL(file);
+
   try{
     const ext=file.name.split('.').pop().toLowerCase()||'jpg';
-    const safeExt=['jpg','jpeg','png','webp','gif'].includes(ext)?ext:'jpg';
-    const path=`avatars/${currentUser.id}/avatar.${safeExt}`;
+    const safeExt=['jpg','jpeg','png','webp'].includes(ext)?ext:'jpg';
+    // Use timestamp in filename to bust CDN cache on update
+    const ts=Date.now();
+    const path=`${currentUser.id}/avatar_${ts}.${safeExt}`;
 
-    const{error:uploadError}=await supabaseClient.storage
+    console.log('Avatar upload — bucket: avatars, path:', path, 'size:', file.size, 'type:', file.type);
+
+    const{data:uploadData, error:uploadError}=await supabaseClient.storage
       .from('avatars')
-      .upload(path, file, {contentType:file.type, upsert:true});
+      .upload(path, file, {contentType:file.type, upsert:false});
 
-    if(uploadError)throw new Error(uploadError.message);
+    if(uploadError){
+      console.error('Avatar upload error:', uploadError);
+      throw new Error(uploadError.message||JSON.stringify(uploadError));
+    }
 
     const{data:{publicUrl}}=supabaseClient.storage.from('avatars').getPublicUrl(path);
-    // Bust cache
-    const avatarUrl=publicUrl+'?t='+Date.now();
+    console.log('Avatar public URL:', publicUrl);
 
     const{error:dbError}=await supabaseClient.from('profiles')
       .update({avatar_url:publicUrl}).eq('id',currentUser.id);
-    if(dbError)throw new Error(dbError.message);
+    if(dbError){
+      console.error('Avatar DB update error:', dbError);
+      throw new Error(dbError.message);
+    }
 
+    // Update local state with the real URL
     currentProfile={...currentProfile,avatar_url:publicUrl};
     showToast('Profile photo updated ✓');
     renderProfile();
     updateUserUI();
   }catch(e){
+    console.error('handleAvatarUpload exception:', e);
     showToast('Upload failed: '+e.message,true);
+    // Revert preview on failure
+    renderProfile();
   }
 }
 
