@@ -2840,6 +2840,7 @@ function mapDBCase(row){
   status:row.status||'open',responses:[]
 };}
 function mapDBResponse(row){return{id:row.id,ph:-1,name:row.author_name,spec:row.author_spec,initials:row.author_initials,color:row.author_color||'#3b82f6',authorId:row.author_id||null,dx:row.diagnosis,conf:row.confidence||3,note:row.note||'',time:timeAgo(row.created_at),npiVerified:row.npi_verified||false,specialty:row.author_specialty||''};}
+async function loadCasesFromDB(){
   if(!supabaseClient)return;
   const{data:caseRows,error:caseError}=await supabaseClient.from('cases').select('*').order('created_at',{ascending:false}).limit(50);
   if(caseError){
