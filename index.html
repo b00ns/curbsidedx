@@ -4802,10 +4802,13 @@ function handleAvatarUpload(input){
   pickerImg.onload=()=>{
     // Auto-fit: scale so the shorter dimension fills the 260px circle
     const stageSize=260;
-    const fitScale=stageSize/Math.min(pickerImg.naturalWidth,pickerImg.naturalHeight);
-    _avatarPickerScale=Math.max(1,fitScale);
-    zoomSlider.min=Math.max(0.5,fitScale*0.5);
-    zoomSlider.max=Math.max(3,fitScale*3);
+    // Fit the LONGER side into the circle so the whole face is visible by default
+    const fitScale=stageSize/Math.max(pickerImg.naturalWidth,pickerImg.naturalHeight);
+    _avatarPickerScale=fitScale;
+    // Allow zooming from 80% of fit (zoom out a little) to 5x fit (zoom way in)
+    zoomSlider.min=(fitScale*0.8).toFixed(3);
+    zoomSlider.max=(fitScale*5).toFixed(3);
+    zoomSlider.step=(fitScale*0.01).toFixed(4);
     zoomSlider.value=_avatarPickerScale;
     // Center the image
     _avatarPickerX=(stageSize-pickerImg.naturalWidth*_avatarPickerScale)/2;
@@ -4827,8 +4830,7 @@ function _applyAvatarTransform(){
   // Clamp so image always covers the circle
   const w=img.naturalWidth*_avatarPickerScale;
   const h=img.naturalHeight*_avatarPickerScale;
-  _avatarPickerX=Math.min(0,Math.max(stageSize-w,_avatarPickerX));
-  _avatarPickerY=Math.min(0,Math.max(stageSize-h,_avatarPickerY));
+  // Allow free positioning — user can pan anywhere to frame their face
   img.style.width=w+'px';img.style.height=h+'px';
   img.style.left=_avatarPickerX+'px';img.style.top=_avatarPickerY+'px';
 }
