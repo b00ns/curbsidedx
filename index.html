@@ -2273,6 +2273,7 @@ async function signUp(){
     };
     updateUserUI();
     localStorage.setItem('curbsidedx_just_signed_up','1');
+    localStorage.removeItem('curbsidedx_nudge_dismissed');
     showToast(`Welcome, ${npiCheck.name||('Dr. '+last)} — MD ✓ badge activated!`);
     if(supabaseClient)subscribeToRealtime();
 
@@ -2299,7 +2300,9 @@ async function fetchProfile(){
         specialty:meta.specialty||'',
         institution:meta.institution||'',
         npi_number:meta.npi_number||'',
-        npi_verified:false
+        npi_physician_name:meta.npi_physician_name||'',
+        // Preserve npi_verified from auth metadata — set at signup after edge function confirmed it
+        npi_verified:meta.npi_verified===true||meta.npi_verified==='true'
       };
       await supabaseClient.from('profiles').upsert(newProfile);
       currentProfile=newProfile;
@@ -5189,9 +5192,12 @@ function checkAndShowWelcome(){
 function updateNPINudge(){
   const banner=document.getElementById('npi-nudge-banner');
   if(!banner)return;
-  const dismissed=sessionStorage.getItem('curbsidedx_nudge_dismissed');
+  // Verified users never see the nudge — period
   const isVerified=currentProfile?.npi_verified||demoMode;
-  if(!isVerified&&!dismissed&&!npiNudgeDismissed&&(currentUser||demoMode)){
+  if(isVerified){banner.style.display='none';return;}
+  // Only show to logged-in unverified users who haven't dismissed this session
+  const dismissed=localStorage.getItem('curbsidedx_nudge_dismissed');
+  if(!dismissed&&!npiNudgeDismissed&&(currentUser||demoMode)){
     banner.style.display='flex';
   } else {
     banner.style.display='none';
@@ -5200,8 +5206,9 @@ function updateNPINudge(){
 
 function dismissNPINudge(){
   npiNudgeDismissed=true;
-  sessionStorage.setItem('curbsidedx_nudge_dismissed','1');
-  document.getElementById('npi-nudge-banner').style.display='none';
+  localStorage.setItem('curbsidedx_nudge_dismissed','1');
+  const banner=document.getElementById('npi-nudge-banner');
+  if(banner)banner.style.display='none';
 }
 
 function nudgeVerifyNPI(){
@@ -5462,7 +5469,6 @@ function toggleTheme(){
         renderLeaderboard();
         updateStatCounters();
         updateNPINudge();
-        checkAndShowWelcome();
         checkAndShowWelcome();
       } else if(event==='SIGNED_OUT'){
         if(presenceChannel){try{supabaseClient.removeChannel(presenceChannel);}catch(e){}presenceChannel=null;}
