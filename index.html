@@ -2315,7 +2315,7 @@ function showAuthError(form,msg){
 function updateUserUI(){
   const p=currentProfile;if(!p)return;
   const initials=((p.first_name||'?')[0]+(p.last_name||'?')[0]).toUpperCase();
-  const name=`Dr. ${p.first_name?p.first_name[0]+'. ':''}${p.last_name||''}`;
+  const name=`Dr. ${p.first_name?p.first_name+' ':''}${p.last_name||''}`;
   const role=`${p.specialty||'—'} · ${p.institution||'—'}`;
   const badgeHtml=p.npi_verified?'<div class="verified-badge">MD ✓</div>':'<div class="unverified-badge" onclick="showNPIPanel()">Verify NPI</div>';
   const avatarContent=p.avatar_url
@@ -2904,7 +2904,7 @@ async function persistCase(caseData){
 }
 async function persistResponse(caseId,dx,conf,note){
   if(!supabaseClient||!currentUser||!currentProfile)return;
-  const p=currentProfile,name=`Dr. ${p.first_name?p.first_name[0]+'. ':''}${p.last_name||''}`;
+  const p=currentProfile,name=`Dr. ${p.first_name?p.first_name+' ':''}${p.last_name||''}`;
   await supabaseClient.from('responses').insert({
     case_id:caseId,author_id:currentUser.id,author_name:name,
     author_spec:`${p.specialty} · ${p.institution}`,
@@ -2924,13 +2924,13 @@ async function persistResponse(caseId,dx,conf,note){
 // DEMO DATA
 // ══════════════════════════════════════════════
 const PHYSICIANS=[
-  {init:'JW',name:'Dr. J. Walsh',spec:'EP · Mayo',color:'#8b5cf6',specialty:'EP',npiVerified:true},
-  {init:'TN',name:'Dr. T. Nguyen',spec:'IC · UCSF',color:'#3b82f6',specialty:'IC',npiVerified:true},
+  {init:'JW',name:'Dr. James Walsh',spec:'EP · Mayo',color:'#8b5cf6',specialty:'EP',npiVerified:true},
+  {init:'TN',name:'Dr. Thomas Nguyen',spec:'IC · UCSF',color:'#3b82f6',specialty:'IC',npiVerified:true},
   {init:'LB',name:'Dr. L. Brennan',spec:'Cards · USC',color:'#22c55e',specialty:'GEN',npiVerified:true},
-  {init:'SR',name:'Dr. S. Rao',spec:'HF · Cleveland',color:'#f59e0b',specialty:'HF',npiVerified:true},
-  {init:'AM',name:'Dr. A. Martinez',spec:'EP · NYU',color:'#ec4899',specialty:'EP',npiVerified:true},
-  {init:'DK',name:'Dr. D. Kim',spec:'IC · Cedars',color:'#2dd4bf',specialty:'IC',npiVerified:true},
-  {init:'PG',name:'Dr. P. Gupta',spec:'EP · Stanford',color:'#a78bfa',specialty:'EP',npiVerified:true}
+  {init:'SR',name:'Dr. Sunita Rao',spec:'HF · Cleveland',color:'#f59e0b',specialty:'HF',npiVerified:true},
+  {init:'AM',name:'Dr. Ana Martinez',spec:'EP · NYU',color:'#ec4899',specialty:'EP',npiVerified:true},
+  {init:'DK',name:'Dr. David Kim',spec:'IC · Cedars',color:'#2dd4bf',specialty:'IC',npiVerified:true},
+  {init:'PG',name:'Dr. Priya Gupta',spec:'EP · Stanford',color:'#a78bfa',specialty:'EP',npiVerified:true}
 ];
 
 const _minsAgo=m=>new Date(Date.now()-m*60000).toISOString();
@@ -3235,7 +3235,7 @@ async function submitResponse(){
   const c=cases.find(x=>x.id===selectedCaseId),j=c.ddx.indexOf(selectedDx);
   if(j>=0)c.votes[j]++;
   const note=document.getElementById('resp-note').value,p=currentProfile;
-  const name=p?`Dr. ${p.first_name?p.first_name[0]+'. ':''}${p.last_name||''}`:'Dr. You';
+  const name=p?`Dr. ${p.first_name?p.first_name+' ':''}${p.last_name||''}`:'Dr. You';
   c.responses.unshift({ph:-1,initials:p?((p.first_name||'?')[0]+(p.last_name||'?')[0]).toUpperCase():'ME',name,spec:p?`${p.specialty}·${p.institution}`:'EP',color:'#3b82f6',dx:selectedDx,conf:selectedConf||3,note,time:'just now'});
   myResponses++;
   document.getElementById('resp-note').value='';
@@ -3279,7 +3279,7 @@ async function submitCase(){
   const windowHours=parseInt(activeWindowBtn?.dataset.hours||'6');
   const windowMs=windowHours*60*60*1000;
   const p=currentProfile;
-  const author=p?`Dr. ${p.first_name?p.first_name[0]+'. ':''}${p.last_name||''}`:'Dr. Lee';
+  const author=p?`Dr. ${p.first_name?p.first_name+' ':''}${p.last_name||''}`:'Dr. Lee';
   const authorSpec=p?`${p.specialty||'Cards'} · ${p.institution||''}`:'EP · Long Beach';
   const authorInit=p?((p.first_name||'M')[0]+(p.last_name||'L')[0]).toUpperCase():'ML';
 
@@ -3622,28 +3622,22 @@ function renderLeaderboard(){
   // Sort by response count
   const sorted=[...responderMap.values()].sort((a,b)=>b.count-a.count).slice(0,6);
 
-  // Fall back to mock data if no real data yet
-  const leaderData=sorted.length>0?sorted:[
-    {initials:'JW',name:'Dr. J. Walsh',spec:'EP · Mayo',color:'#8b5cf6',count:89,correct:84},
-    {initials:'TN',name:'Dr. T. Nguyen',spec:'IC · UCSF',color:'#3b82f6',count:74,correct:67},
-    {initials:'SR',name:'Dr. S. Rao',spec:'HF · Cleveland',color:'#f59e0b',count:61,correct:54},
-    {initials:'AM',name:'Dr. A. Martinez',spec:'EP · NYU',color:'#ec4899',count:55,correct:51},
-    {initials:'DK',name:'Dr. D. Kim',spec:'IC · Cedars',color:'#2dd4bf',count:42,correct:37},
-    {initials:'PG',name:'Dr. P. Gupta',spec:'EP · Stanford',color:'#a78bfa',count:38,correct:35},
-  ];
-
-  const rankEmoji=['🥇','🥈','🥉'];
-  document.getElementById('leaderboard').innerHTML=leaderData.map((p,i)=>{
-    const acc=p.count>0?Math.round(p.correct/p.count*100)+'%':'—';
-    const init=p.initials||(p.name.split(' ').slice(-1)[0].slice(0,2).toUpperCase());
-    const profileClick=p.userId?`onclick="openPhysicianProfile('${p.userId}',{name:'${(p.name||'').replace(/'/g,"\\'")}',spec:'${(p.spec||'').replace(/'/g,"\\'")}',initials:'${init}',color:'${p.color}',npiVerified:true})" style="cursor:pointer;"`:'' ;
-    return`<div class="lb-item" ${profileClick}>
-      <div class="lb-rank${i<3?' gold':''}">${rankEmoji[i]||i+1}</div>
-      <div class="avatar sm" style="background:${p.color}22;color:${p.color}">${init}</div>
-      <div class="lb-info"><div class="lb-name">${p.name}</div><div class="lb-spec">${p.spec||'—'}</div></div>
-      <div class="lb-right"><div class="lb-acc">${acc}</div><div class="lb-resps">${p.count} resps</div></div>
-    </div>`;
-  }).join('');
+  // Empty state when no real responses yet — no fake users
+  if(sorted.length===0){
+    document.getElementById('leaderboard').innerHTML='<div style="font-size:12px;color:var(--text3);padding:12px 0;text-align:center;">No responses yet — be the first to contribute.</div>';
+  } else {
+    const rankEmoji=['🥇','🥈','🥉'];
+    document.getElementById('leaderboard').innerHTML=sorted.map((p,i)=>{
+      const init=p.initials||(p.name.split(' ').slice(-1)[0].slice(0,2).toUpperCase());
+      const profileClick=p.userId?`onclick="openPhysicianProfile('${p.userId}',{name:'${(p.name||'').replace(/'/g,"\'")}',spec:'${(p.spec||'').replace(/'/g,"\'")}',initials:'${init}',color:'${p.color}',npiVerified:true})" style="cursor:pointer;"`:'' ;
+      return`<div class="lb-item" ${profileClick}>
+        <div class="lb-rank${i<3?' gold':''}">${rankEmoji[i]||i+1}</div>
+        <div class="avatar sm" style="background:${p.color}22;color:${p.color}">${init}</div>
+        <div class="lb-info"><div class="lb-name">${p.name}</div><div class="lb-spec">${p.spec||'—'}</div></div>
+        <div class="lb-right"><div class="lb-acc" style="font-size:15px;font-weight:700;color:var(--text);">${p.count}</div><div class="lb-resps">responses</div></div>
+      </div>`;
+    }).join('');
+  }
 
   // Top diagnoses — from live vote data
   const dxTally=new Map();
@@ -4318,7 +4312,7 @@ async function submitCDResponse(){
   if(j>=0)c.votes[j]++;
   const note=document.getElementById('cd-note-input').value.trim();
   const p=currentProfile;
-  const name=p?`Dr. ${p.first_name?p.first_name[0]+'. ':''}${p.last_name||''}`:'Dr. You';
+  const name=p?`Dr. ${p.first_name?p.first_name+' ':''}${p.last_name||''}`:'Dr. You';
   c.responses.unshift({
     ph:-1,
     initials:p?((p.first_name||'?')[0]+(p.last_name||'?')[0]).toUpperCase():'ME',
@@ -5109,13 +5103,13 @@ function seedDemoNotifications(){
   notifications=[];
   addNotification({
     type:'response', caseId:1,
-    message:`<strong>Dr. P. Gupta</strong> responded with <em>Monomorphic VT</em>`,
+    message:`<strong>Dr. Priya Gupta</strong> responded with <em>Monomorphic VT</em>`,
     caseQ:'70M with ESRD on HD presenting with palpitations…',
     createdAt: new Date(Date.now()-3*60000).toISOString()
   });
   addNotification({
     type:'response', caseId:1,
-    message:`<strong>Dr. D. Kim</strong> responded with <em>SVT with aberrancy</em>`,
+    message:`<strong>Dr. David Kim</strong> responded with <em>SVT with aberrancy</em>`,
     caseQ:'70M with ESRD on HD presenting with palpitations…',
     createdAt: new Date(Date.now()-8*60000).toISOString()
   });
