@@ -94,6 +94,26 @@ html[data-theme="dark"] {
   --shadow-hover: none;
   --ecg-bg: #080a0f;
 }
+/* ── AVATAR PICKER MODAL ── */
+.avatar-picker-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;display:flex;align-items:center;justify-content:center;}
+.avatar-picker-modal{background:var(--card);border-radius:var(--r2);padding:24px;width:340px;max-width:92vw;}
+.avatar-picker-title{font-size:15px;font-weight:600;margin-bottom:4px;}
+.avatar-picker-sub{font-size:12px;color:var(--text2);margin-bottom:16px;}
+.avatar-picker-stage{width:260px;height:260px;margin:0 auto 16px;border-radius:50%;overflow:hidden;position:relative;cursor:grab;border:2px solid var(--border2);background:var(--bg3);}
+.avatar-picker-stage:active{cursor:grabbing;}
+.avatar-picker-stage img{position:absolute;transform-origin:0 0;user-select:none;pointer-events:none;}
+.avatar-picker-zoom{display:flex;align-items:center;gap:10px;margin-bottom:16px;}
+.avatar-picker-zoom label{font-size:11px;color:var(--text2);white-space:nowrap;}
+.avatar-picker-zoom input[type=range]{flex:1;accent-color:var(--accent);}
+.avatar-picker-btns{display:flex;gap:8px;}
+.avatar-picker-cancel{flex:1;padding:9px;border-radius:var(--r);border:1px solid var(--border2);background:transparent;color:var(--text);font-family:var(--font-sans);font-size:13px;cursor:pointer;}
+.avatar-picker-save{flex:2;padding:9px;border-radius:var(--r);border:none;background:var(--accent);color:#fff;font-family:var(--font-sans);font-size:13px;font-weight:600;cursor:pointer;}
+.avatar-picker-save:hover{opacity:.88;}
+/* ── PHOTO AVATARS everywhere ── */
+.avatar img, .case-avatar img, .avatar.sm img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
+.lb-avatar-wrap{width:30px;height:30px;border-radius:50%;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;}
+.lb-avatar-wrap img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
+
 *{box-sizing:border-box;margin:0;padding:0;}
 html{height:100%;height:100dvh;background:var(--bg2);}
 body{font-family:var(--font-sans);background:var(--bg);color:var(--text);overflow:hidden;height:100%;min-height:100dvh;}
@@ -2843,7 +2863,7 @@ function mapDBCase(row){
   return{
   id:row.id,spec:row.specialty,
   author:row.author_name,authorSpec:row.author_spec,authorInit:row.author_initials,
-  authorColor:row.author_color||'#3b82f6',authorId:row.author_id,
+  authorColor:row.author_color||'#3b82f6',authorId:row.author_id,authorAvatar:row.author_avatar||null,
   authorNpiVerified:row.author_npi_verified||false,
   windowMs,createdAt,expiresAt,
   time:timeAgo(createdAt),
@@ -2856,7 +2876,7 @@ function mapDBCase(row){
   resolvedDx:row.resolved_dx||null,resolvedNote:row.resolved_note||null,
   status:row.status||'open',responses:[]
 };}
-function mapDBResponse(row){return{id:row.id,ph:-1,name:row.author_name,spec:row.author_spec,initials:row.author_initials,color:row.author_color||'#3b82f6',authorId:row.author_id||null,dx:row.diagnosis,conf:row.confidence||3,note:row.note||'',time:timeAgo(row.created_at),npiVerified:row.npi_verified||false,specialty:row.author_specialty||''};}
+function mapDBResponse(row){return{id:row.id,ph:-1,name:row.author_name,spec:row.author_spec,initials:row.author_initials,color:row.author_color||'#3b82f6',authorId:row.author_id||null,avatar:row.author_avatar||null,dx:row.diagnosis,conf:row.confidence||3,note:row.note||'',time:timeAgo(row.created_at),npiVerified:row.npi_verified||false,specialty:row.author_specialty||''};}
 async function loadCasesFromDB(){
   if(!supabaseClient)return;
   const{data:caseRows,error:caseError}=await supabaseClient.from('cases').select('*').order('created_at',{ascending:false}).limit(50);
@@ -2895,7 +2915,7 @@ async function persistCase(caseData){
   const expiresAt=new Date(Date.now()+windowMs).toISOString();
   const{data,error}=await supabaseClient.from('cases').insert({
     author_id:currentUser.id,author_name:caseData.author,author_spec:caseData.authorSpec,
-    author_initials:caseData.authorInit,author_color:caseData.authorColor,
+    author_initials:caseData.authorInit,author_color:caseData.authorColor,author_avatar:currentProfile?.avatar_url||null,
     author_npi_verified:currentProfile?.npi_verified||false,
     specialty:caseData.spec,question:caseData.q,
     ddx:caseData.ddx,votes:caseData.votes,total_votes:0,
@@ -2912,6 +2932,7 @@ async function persistResponse(caseId,dx,conf,note){
     case_id:caseId,author_id:currentUser.id,author_name:name,
     author_spec:`${p.specialty} · ${p.institution}`,
     author_initials:((p.first_name||'?')[0]+(p.last_name||'?')[0]).toUpperCase(),
+    author_avatar:currentProfile?.avatar_url||null,
     author_color:'#3b82f6',author_specialty:p.specialty||'',
     npi_verified:p.npi_verified||false,
     diagnosis:dx,confidence:conf,note
@@ -3123,7 +3144,7 @@ function renderFeed(){
 
     div.innerHTML=`
       <div class="case-header">
-        <div class="case-avatar author-link" style="background:${c.authorColor}22;color:${c.authorColor}" onclick="openAuthorProfile(event,'${c.authorId}',{name:'${(c.author||'').replace(/'/g,"\\'")}',spec:'${(c.authorSpec||'').replace(/'/g,"\\'")}',initials:'${c.authorInit||'??'}',color:'${c.authorColor}',npiVerified:${!!c.authorNpiVerified}})" title="View profile">${c.authorInit}</div>
+        <div class="case-avatar author-link" style="background:${c.authorColor}22;color:${c.authorColor};overflow:hidden;" onclick="openAuthorProfile(event,'${c.authorId}',{name:'${(c.author||'').replace(/'/g,"\\'")}',spec:'${(c.authorSpec||'').replace(/'/g,"\\'")}',initials:'${c.authorInit||'??'}',color:'${c.authorColor}',npiVerified:${!!c.authorNpiVerified},avatar:'${c.authorAvatar||''}'})" title="View profile">${c.authorAvatar?`<img src="${c.authorAvatar}" alt="${c.authorInit}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`:c.authorInit}</div>
         <div class="case-meta">
           <div class="case-author" style="display:flex;align-items:center;gap:5px;">
             <span class="author-link" onclick="openAuthorProfile(event,'${c.authorId}',{name:'${(c.author||'').replace(/'/g,"\\'")}',spec:'${(c.authorSpec||'').replace(/'/g,"\\'")}',initials:'${c.authorInit||'??'}',color:'${c.authorColor}',npiVerified:${!!c.authorNpiVerified}})">${c.author}</span>
@@ -3167,7 +3188,7 @@ function selectCase(id,el){
     preview.style.display='block';
     // Avatar
     const av=document.getElementById('rp-prev-avatar');
-    if(av){av.textContent=c.authorInit;av.style.background=c.authorColor+'22';av.style.color=c.authorColor;}
+    if(av){av.innerHTML=c.authorAvatar?`<img src="${c.authorAvatar}" alt="${c.authorInit}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`:`${c.authorInit}`;av.style.background=c.authorColor+'22';av.style.color=c.authorColor;av.style.overflow='hidden';}
     // Author / spec
     const authEl=document.getElementById('rp-prev-author');
     const specEl=document.getElementById('rp-prev-spec');
@@ -3217,7 +3238,8 @@ function renderResponses(c){
     if(r.ph!==undefined&&r.ph>=0){const ph=PHYSICIANS[r.ph%PHYSICIANS.length];initials=ph.init;name=ph.name;spec=ph.spec;color=ph.color;}
     else{initials=r.initials||'??';name=r.name||'Dr. Unknown';spec=r.spec||'—';color=r.color||'#3b82f6';}
     const pips=[1,2,3,4,5].map(n=>`<div class="conf-pip ${n<=r.conf?'on':''}"></div>`).join('');
-    return`<div class="resp-item"><div class="resp-header"><div class="avatar sm" style="background:${color}22;color:${color}">${initials}</div><div><div class="resp-name">${name}</div><div class="resp-spec-tag">${spec}</div></div><div class="resp-time">${r.time}</div></div><div class="resp-dx-label">${r.dx}</div>${r.note?`<div class="resp-note">${r.note}</div>`:''}<div class="resp-conf">${pips}</div></div>`;
+    const respAvatarHtml=r.avatar?`<img src="${r.avatar}" alt="${initials}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`:`${initials}`;
+    return`<div class="resp-item"><div class="resp-header"><div class="avatar sm" style="background:${color}22;color:${color};overflow:hidden">${respAvatarHtml}</div><div><div class="resp-name">${name}</div><div class="resp-spec-tag">${spec}</div></div><div class="resp-time">${r.time}</div></div><div class="resp-dx-label">${r.dx}</div>${r.note?`<div class="resp-note">${r.note}</div>`:''}<div class="resp-conf">${pips}</div></div>`;
   }).join('');
 }
 
@@ -3610,7 +3632,7 @@ function renderLeaderboard(){
     c.responses.forEach(r=>{
       if(!r.name||r.name==='Dr. You')return;
       const key=r.name;
-      if(!responderMap.has(key))responderMap.set(key,{name:r.name,spec:r.spec||'—',color:r.color||'#3b82f6',initials:r.initials||'??',userId:r.authorId||null,count:0,correct:0});
+      if(!responderMap.has(key))responderMap.set(key,{name:r.name,spec:r.spec||'—',color:r.color||'#3b82f6',initials:r.initials||'??',userId:r.authorId||null,avatar:r.avatar||null,count:0,correct:0});
       const entry=responderMap.get(key);
       entry.count++;
       // "Correct" = voted for the plurality diagnosis
@@ -3632,10 +3654,11 @@ function renderLeaderboard(){
     const rankEmoji=['🥇','🥈','🥉'];
     document.getElementById('leaderboard').innerHTML=sorted.map((p,i)=>{
       const init=p.initials||(p.name.split(' ').slice(-1)[0].slice(0,2).toUpperCase());
-      const profileClick=p.userId?`onclick="openPhysicianProfile('${p.userId}',{name:'${(p.name||'').replace(/'/g,"\'")}',spec:'${(p.spec||'').replace(/'/g,"\'")}',initials:'${init}',color:'${p.color}',npiVerified:true})" style="cursor:pointer;"`:'' ;
+      const profileClick=p.userId?`onclick="openPhysicianProfile('${p.userId}',{name:'${(p.name||'').replace(/'/g,"\'")}',spec:'${(p.spec||'').replace(/'/g,"\'")}',initials:'${init}',color:'${p.color}',npiVerified:true,avatar:'${p.avatar||''}'})" style="cursor:pointer;"`:'' ;
+      const avatarHtml=p.avatar?`<img src="${p.avatar}" alt="${init}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`:`<span>${init}</span>`;
       return`<div class="lb-item" ${profileClick}>
         <div class="lb-rank${i<3?' gold':''}">${rankEmoji[i]||i+1}</div>
-        <div class="avatar sm" style="background:${p.color}22;color:${p.color}">${init}</div>
+        <div class="lb-avatar-wrap" style="background:${p.color}22;color:${p.color}">${avatarHtml}</div>
         <div class="lb-info"><div class="lb-name">${p.name}</div><div class="lb-spec">${p.spec||'—'}</div></div>
         <div class="lb-right"><div class="lb-acc" style="font-size:15px;font-weight:700;color:var(--text);">${p.count}</div><div class="lb-resps">responses</div></div>
       </div>`;
@@ -4102,9 +4125,10 @@ function openCaseDetail(id){
 
   // Poster row
   const av=document.getElementById('cd-avatar');
-  av.textContent=c.authorInit;
+  av.innerHTML=c.authorAvatar?`<img src="${c.authorAvatar}" alt="${c.authorInit}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`:`${c.authorInit}`;
   av.style.background=c.authorColor+'22';
   av.style.color=c.authorColor;
+  av.style.overflow='hidden';
   av.style.cursor='pointer';
   av.onclick=(e)=>openAuthorProfile(e,c.authorId,{name:c.author,spec:c.authorSpec,initials:c.authorInit,color:c.authorColor,npiVerified:c.authorNpiVerified});
   document.getElementById('cd-poster-name').textContent=c.author;
@@ -4757,61 +4781,141 @@ async function saveProfile(){
   if(btn){btn.disabled=false;btn.textContent='Save changes';}
 }
 
-async function handleAvatarUpload(input){
+// ── AVATAR UPLOAD + POSITION PICKER ──────────────────────────
+let _avatarPickerFile=null,_avatarPickerScale=1,_avatarPickerX=0,_avatarPickerY=0;
+let _avatarDragging=false,_avatarDragStart={x:0,y:0},_avatarImgStart={x:0,y:0};
+
+function handleAvatarUpload(input){
   if(!input.files||!input.files[0])return;
   if(!supabaseClient||!currentUser){showToast('Sign in to upload a photo',true);return;}
   const file=input.files[0];
   if(!file.type.startsWith('image/')){showToast('Please select an image file',true);return;}
-  if(file.size>5*1024*1024){showToast('Photo must be under 5MB',true);return;}
-
-  showToast('Uploading photo…');
-
-  // Show immediate local preview while uploading
-  const reader=new FileReader();
-  reader.onload=e=>{
-    const avatarWrap=document.querySelector('.profile-hero-avatar-img');
-    if(avatarWrap) avatarWrap.innerHTML=`<img src="${e.target.result}" alt="Avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+  if(file.size>10*1024*1024){showToast('Photo must be under 10MB',true);return;}
+  _avatarPickerFile=file;
+  const url=URL.createObjectURL(file);
+  const pickerImg=document.getElementById('avatar-picker-img');
+  const stage=document.getElementById('avatar-picker-stage');
+  const zoomSlider=document.getElementById('avatar-picker-zoom');
+  // Reset state
+  _avatarPickerScale=1;_avatarPickerX=0;_avatarPickerY=0;
+  zoomSlider.value=1;
+  pickerImg.onload=()=>{
+    // Auto-fit: scale so the shorter dimension fills the 260px circle
+    const stageSize=260;
+    const fitScale=stageSize/Math.min(pickerImg.naturalWidth,pickerImg.naturalHeight);
+    _avatarPickerScale=Math.max(1,fitScale);
+    zoomSlider.min=Math.max(0.5,fitScale*0.5);
+    zoomSlider.max=Math.max(3,fitScale*3);
+    zoomSlider.value=_avatarPickerScale;
+    // Center the image
+    _avatarPickerX=(stageSize-pickerImg.naturalWidth*_avatarPickerScale)/2;
+    _avatarPickerY=(stageSize-pickerImg.naturalHeight*_avatarPickerScale)/2;
+    _applyAvatarTransform();
   };
-  reader.readAsDataURL(file);
-
+  pickerImg.src=url;
+  document.getElementById('avatar-picker-overlay').style.display='flex';
+  // Wire up drag
+  stage.onmousedown=_avatarMouseDown;
+  stage.ontouchstart=_avatarTouchStart;
+  zoomSlider.oninput=()=>{_avatarPickerScale=parseFloat(zoomSlider.value);_applyAvatarTransform();};
+  // Reset file input so same file can be re-picked
+  input.value='';
+}
+function _applyAvatarTransform(){
+  const img=document.getElementById('avatar-picker-img');
+  const stageSize=260;
+  // Clamp so image always covers the circle
+  const w=img.naturalWidth*_avatarPickerScale;
+  const h=img.naturalHeight*_avatarPickerScale;
+  _avatarPickerX=Math.min(0,Math.max(stageSize-w,_avatarPickerX));
+  _avatarPickerY=Math.min(0,Math.max(stageSize-h,_avatarPickerY));
+  img.style.width=w+'px';img.style.height=h+'px';
+  img.style.left=_avatarPickerX+'px';img.style.top=_avatarPickerY+'px';
+}
+function _avatarMouseDown(e){
+  _avatarDragging=true;
+  _avatarDragStart={x:e.clientX,y:e.clientY};
+  _avatarImgStart={x:_avatarPickerX,y:_avatarPickerY};
+  window.onmousemove=_avatarMouseMove;
+  window.onmouseup=()=>{_avatarDragging=false;window.onmousemove=null;};
+  e.preventDefault();
+}
+function _avatarMouseMove(e){
+  if(!_avatarDragging)return;
+  _avatarPickerX=_avatarImgStart.x+(e.clientX-_avatarDragStart.x);
+  _avatarPickerY=_avatarImgStart.y+(e.clientY-_avatarDragStart.y);
+  _applyAvatarTransform();
+}
+function _avatarTouchStart(e){
+  if(e.touches.length===1){
+    _avatarDragging=true;
+    _avatarDragStart={x:e.touches[0].clientX,y:e.touches[0].clientY};
+    _avatarImgStart={x:_avatarPickerX,y:_avatarPickerY};
+    window.ontouchmove=_avatarTouchMove;
+    window.ontouchend=()=>{_avatarDragging=false;};
+    e.preventDefault();
+  }
+}
+function _avatarTouchMove(e){
+  if(!_avatarDragging||e.touches.length!==1)return;
+  _avatarPickerX=_avatarImgStart.x+(e.touches[0].clientX-_avatarDragStart.x);
+  _avatarPickerY=_avatarImgStart.y+(e.touches[0].clientY-_avatarDragStart.y);
+  _applyAvatarTransform();
+  e.preventDefault();
+}
+function closeAvatarPicker(){
+  document.getElementById('avatar-picker-overlay').style.display='none';
+  _avatarPickerFile=null;
+}
+async function saveAvatarFromPicker(){
+  if(!_avatarPickerFile||!supabaseClient||!currentUser)return;
+  const btn=document.getElementById('avatar-picker-save-btn');
+  btn.disabled=true;btn.textContent='Saving…';
   try{
-    const ext=file.name.split('.').pop().toLowerCase()||'jpg';
-    const safeExt=['jpg','jpeg','png','webp'].includes(ext)?ext:'jpg';
-    // Use timestamp in filename to bust CDN cache on update
+    // Render the cropped/positioned view to a 400×400 canvas — high quality, consistent size
+    const OUTPUT_SIZE=400;
+    const canvas=document.createElement('canvas');
+    canvas.width=OUTPUT_SIZE;canvas.height=OUTPUT_SIZE;
+    const ctx=canvas.getContext('2d');
+    const img=document.getElementById('avatar-picker-img');
+    const stageSize=260;
+    const scaleToOutput=OUTPUT_SIZE/stageSize;
+    ctx.drawImage(
+      img,
+      -_avatarPickerX*scaleToOutput/(_avatarPickerScale*(img.naturalWidth/img.naturalWidth)),
+      -_avatarPickerY*scaleToOutput/(_avatarPickerScale*(img.naturalHeight/img.naturalHeight)),
+      img.naturalWidth*_avatarPickerScale*scaleToOutput,
+      img.naturalHeight*_avatarPickerScale*scaleToOutput
+    );
+    // Correct the math — simpler approach
+    const canvas2=document.createElement('canvas');
+    canvas2.width=OUTPUT_SIZE;canvas2.height=OUTPUT_SIZE;
+    const ctx2=canvas2.getContext('2d');
+    const ratio=OUTPUT_SIZE/stageSize;
+    ctx2.drawImage(img,
+      _avatarPickerX*ratio,
+      _avatarPickerY*ratio,
+      img.naturalWidth*_avatarPickerScale*ratio,
+      img.naturalHeight*_avatarPickerScale*ratio
+    );
+    const blob=await new Promise(res=>canvas2.toBlob(res,'image/jpeg',0.92));
     const ts=Date.now();
-    const path=`${currentUser.id}/avatar_${ts}.${safeExt}`;
-
-    console.log('Avatar upload — bucket: avatars, path:', path, 'size:', file.size, 'type:', file.type);
-
-    const{data:uploadData, error:uploadError}=await supabaseClient.storage
-      .from('avatars')
-      .upload(path, file, {contentType:file.type, upsert:false});
-
-    if(uploadError){
-      console.error('Avatar upload error:', uploadError);
-      throw new Error(uploadError.message||JSON.stringify(uploadError));
-    }
-
+    const path=`${currentUser.id}/avatar_${ts}.jpg`;
+    const{error:uploadError}=await supabaseClient.storage.from('avatars').upload(path,blob,{contentType:'image/jpeg',upsert:false});
+    if(uploadError)throw new Error(uploadError.message||JSON.stringify(uploadError));
     const{data:{publicUrl}}=supabaseClient.storage.from('avatars').getPublicUrl(path);
-    console.log('Avatar public URL:', publicUrl);
-
-    const{error:dbError}=await supabaseClient.from('profiles')
-      .update({avatar_url:publicUrl}).eq('id',currentUser.id);
-    if(dbError){
-      console.error('Avatar DB update error:', dbError);
-      throw new Error(dbError.message);
-    }
-
-    // Update local state with the real URL
+    const{error:dbError}=await supabaseClient.from('profiles').update({avatar_url:publicUrl,avatar_position:JSON.stringify({x:_avatarPickerX,y:_avatarPickerY,scale:_avatarPickerScale})}).eq('id',currentUser.id);
+    if(dbError)throw new Error(dbError.message);
     currentProfile={...currentProfile,avatar_url:publicUrl};
+    closeAvatarPicker();
     showToast('Profile photo updated ✓');
     renderProfile();
     updateUserUI();
   }catch(e){
-    console.error('handleAvatarUpload exception:', e);
     showToast('Upload failed: '+e.message,true);
-    // Revert preview on failure
-    renderProfile();
+    console.error(e);
+  }finally{
+    btn.disabled=false;btn.textContent='Save photo';
   }
 }
 
@@ -5531,5 +5635,24 @@ function toggleTheme(){
   </div>
 </div>
 
+
+<!-- AVATAR POSITION PICKER MODAL -->
+<div id="avatar-picker-overlay" class="avatar-picker-overlay" style="display:none;">
+  <div class="avatar-picker-modal">
+    <div class="avatar-picker-title">Position your photo</div>
+    <div class="avatar-picker-sub">Drag to reposition · Pinch or use slider to zoom</div>
+    <div class="avatar-picker-stage" id="avatar-picker-stage">
+      <img id="avatar-picker-img" src="" alt="avatar preview">
+    </div>
+    <div class="avatar-picker-zoom">
+      <label>Zoom</label>
+      <input type="range" id="avatar-picker-zoom" min="1" max="3" step="0.01" value="1">
+    </div>
+    <div class="avatar-picker-btns">
+      <button class="avatar-picker-cancel" onclick="closeAvatarPicker()">Cancel</button>
+      <button class="avatar-picker-save" id="avatar-picker-save-btn" onclick="saveAvatarFromPicker()">Save photo</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
