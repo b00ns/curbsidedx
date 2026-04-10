@@ -1354,7 +1354,7 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
             <option value="OTHER">Other</option>
           </select>
         </div>
-        <div class="form-group"><label class="form-label">NPI Number</label><input class="form-input" id="su-npi" type="text" placeholder="10-digit NPI" maxlength="10"></div>
+        <div class="form-group"><label class="form-label">NPI Number <span style="color:var(--accent);font-size:10px;font-weight:600;">REQUIRED</span></label><input class="form-input" id="su-npi" type="text" placeholder="10-digit NPI (verified at sign-up)" maxlength="10" inputmode="numeric" pattern="[0-9]*"></div>
       </div>
       <div class="form-group"><label class="form-label">Institution / Practice</label><input class="form-input" id="su-institution" type="text" placeholder="Memorial Cardiology Medical Group"></div>
       <div class="form-error" id="su-error"></div>
@@ -2223,27 +2223,39 @@ async function signUp(){
   const institution=document.getElementById('su-institution').value.trim();
   if(!first||!last||!email||!password)return showAuthError('su','Please fill all required fields');
   if(password.length<8)return showAuthError('su','Password must be at least 8 characters');
-  if(npi&&npi.length!==10)return showAuthError('su','NPI must be exactly 10 digits');
+  if(!npi||npi.length!==10)return showAuthError('su','NPI is required and must be exactly 10 digits');
 
-  const btn=document.getElementById('su-btn');btn.disabled=true;btn.textContent='Creating account…';
+  const btn=document.getElementById('su-btn');btn.disabled=true;btn.textContent='Verifying NPI…';
+
+  // Verify NPI before creating the account
+  const npiCheck=await checkNPIRegistry(npi);
+  if(!npiCheck.valid){
+    btn.disabled=false;btn.textContent='Create account →';
+    return showAuthError('su',npiCheck.message||'NPI verification failed — please check the number and try again');
+  }
+
+  btn.textContent='Creating account…';
 
   try{
     const{data,error}=await supabaseClient.auth.signUp({
       email,password,
-      options:{data:{first_name:first,last_name:last,specialty:spec,institution,npi_number:npi,npi_verified:false}}
+      options:{data:{first_name:first,last_name:last,specialty:spec,institution,npi_number:npi,npi_verified:true}}
     });
     if(error)throw error;
     currentUser=data.user;
 
-    // Try to save profile — non-fatal if it fails (session may not be active yet)
+    // Save profile with npi_verified:true since we just confirmed it
     if(currentUser){
       try{
         await supabaseClient.from('profiles').upsert({
           id:currentUser.id,first_name:first,last_name:last,email,
-          specialty:spec,institution,npi_number:npi,npi_verified:false
+          specialty:spec,institution,
+          npi_number:npi,npi_verified:true,
+          npi_physician_name:npiCheck.name||`${first} ${last}`,
+          npi_credential:npiCheck.credential||null,
+          npi_taxonomy:npiCheck.taxonomy||null
         });
       }catch(profileErr){
-        // Profile will be created on next sign-in via fetchProfile
         console.warn('Profile upsert deferred:',profileErr.message);
       }
     }
@@ -2251,15 +2263,17 @@ async function signUp(){
     btn.disabled=false;btn.textContent='Create account →';
     hideModal('auth-modal');
 
-    // Set local profile so UI updates immediately
+    // Set local profile — already verified
     currentProfile={
       id:currentUser?.id||'new',
       first_name:first,last_name:last,email,
-      specialty:spec,institution,npi_number:npi,npi_verified:false
+      specialty:spec,institution,
+      npi_number:npi,npi_verified:true,
+      npi_physician_name:npiCheck.name||`${first} ${last}`
     };
     updateUserUI();
     localStorage.setItem('curbsidedx_just_signed_up','1');
-    showToast('Account created! Verify your NPI to unlock posting.');
+    showToast(`Welcome, ${npiCheck.name||('Dr. '+last)} — MD ✓ badge activated!`);
     if(supabaseClient)subscribeToRealtime();
 
   }catch(e){
@@ -2329,48 +2343,48 @@ function updateUserUI(){
 // ══════════════════════════════════════════════
 // NPI
 // ══════════════════════════════════════════════
+// Calls our Supabase Edge Function proxy — avoids CORS, no fail-open
+const NPI_EDGE_FN='https://ebzuytnzbwmzrrspmmqr.supabase.co/functions/v1/verify-npi';
 async function checkNPIRegistry(npi){
   try{
-    const res=await fetch(`https://npiregistry.cms.hhs.gov/api/?number=${encodeURIComponent(npi)}&version=2.1`);
+    const res=await fetch(NPI_EDGE_FN,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY},
+      body:JSON.stringify({npi})
+    });
     const data=await res.json();
-    if(data.result_count===0)return{valid:false,message:'NPI not found in registry'};
-    const result=data.results[0];
-    if(result.enumeration_type!=='NPI-1')return{valid:false,message:'NPI is not an individual provider NPI'};
-    const taxonomy=result.taxonomies?.find(t=>t.primary);
-    return{valid:true,data:result,taxonomy};
+    if(!res.ok)return{valid:false,message:data.message||'Registry lookup failed'};
+    return data; // {valid, name, credential, isMD, taxonomy, state, status}
   }catch(e){
-    // Likely CORS block when running from file:// or non-hosted context
-    const isCORS=e.message&&(e.message.includes('fetch')||e.message.includes('network')||e.message.includes('CORS')||e.name==='TypeError');
-    if(isCORS)return{valid:false,corsBlocked:true,message:'Registry unreachable from browser (CORS)'};
-    return{valid:false,message:'Registry lookup failed — check connectivity'};
+    console.error('NPI lookup error:',e);
+    return{valid:false,message:'Could not reach verification service — check your connection'};
   }
 }
 async function verifyNPI(){
   const npi=document.getElementById('npi-verify-input').value.trim();
-  if(npi.length!==10){setNPIResult('NPI must be exactly 10 digits','error');return;}
+  if(!/^\d{10}$/.test(npi)){setNPIResult('NPI must be exactly 10 digits','error');return;}
   const btn=document.getElementById('npi-verify-btn');btn.disabled=true;btn.textContent='Checking…';
-  setNPIResult('Checking NPI Registry…','loading');
+  setNPIResult('Contacting NPI Registry…','loading');
   const result=await checkNPIRegistry(npi);
   btn.disabled=false;btn.textContent='Verify';
   if(result.valid){
-    const name=`${result.data.basic?.first_name||''} ${result.data.basic?.last_name||''}`.trim();
-    const taxonomy=result.taxonomy?.desc||'Physician';
-    setNPIResult(`✓ Verified: ${name} · ${taxonomy}`,'success');
-    if(supabaseClient&&currentUser)await supabaseClient.from('profiles').update({npi_number:npi,npi_verified:true,npi_physician_name:name}).eq('id',currentUser.id);
-    currentProfile={...currentProfile,npi_verified:true,npi_number:npi};
+    const label=`${result.name}${result.credential?' · '+result.credential:''} · ${result.taxonomy}`;
+    setNPIResult(`✓ Verified: ${label}`,'success');
+    if(supabaseClient&&currentUser){
+      await supabaseClient.from('profiles').update({
+        npi_number:npi,
+        npi_verified:true,
+        npi_physician_name:result.name,
+        npi_credential:result.credential||null,
+        npi_taxonomy:result.taxonomy||null
+      }).eq('id',currentUser.id);
+    }
+    currentProfile={...currentProfile,npi_verified:true,npi_number:npi,npi_physician_name:result.name};
     updateUserUI();
-    setTimeout(()=>{document.getElementById('npi-panel').style.display='none';},2000);
+    setTimeout(()=>{document.getElementById('npi-panel').style.display='none';},2500);
     showToast('NPI verified — you can now post cases ✓');
-  } else if(result.corsBlocked){
-    // CORS blocked — accept NPI on good faith, flag for server-side verification later
-    setNPIResult('⚠️ Registry unreachable from browser — NPI saved, pending server verification','success');
-    if(supabaseClient&&currentUser)await supabaseClient.from('profiles').update({npi_number:npi,npi_verified:true,npi_physician_name:'Pending verification'}).eq('id',currentUser.id);
-    currentProfile={...currentProfile,npi_verified:true,npi_number:npi};
-    updateUserUI();
-    setTimeout(()=>{document.getElementById('npi-panel').style.display='none';},3000);
-    showToast('NPI saved — will be verified server-side at launch ✓');
   } else {
-    setNPIResult('✗ '+result.message,'error');
+    setNPIResult('✗ '+(result.message||'Verification failed'),'error');
   }
 }
 function setNPIResult(msg,type){const el=document.getElementById('npi-result');el.textContent=msg;el.className='npi-result '+type;}
@@ -3208,6 +3222,14 @@ function selectDx(dx,el){selectedDx=dx;document.querySelectorAll('.dx-option').f
 function setConf(n){selectedConf=n;document.querySelectorAll('.conf-dot').forEach((d,i)=>d.classList.toggle('filled',i<n));}
 
 async function submitResponse(){
+  // Must be authenticated and NPI-verified to respond
+  if(!currentUser||!supabaseClient)return showToast('Please sign in to submit a response',true);
+  if(!currentProfile?.npi_verified){
+    showToast('Verify your NPI to respond to cases',true);
+    // Open profile to NPI section
+    nudgeVerifyNPI();
+    return;
+  }
   if(!selectedCaseId)return showToast('Select a case first',true);
   if(!selectedDx)return showToast('Choose a diagnosis to vote on',true);
   const c=cases.find(x=>x.id===selectedCaseId),j=c.ddx.indexOf(selectedDx);
@@ -3230,6 +3252,14 @@ async function submitResponse(){
 }
 
 async function submitCase(){
+  // Hard gate: must be authenticated and NPI-verified to post
+  if(!currentUser||!supabaseClient)return showToast('Please sign in to post a case',true);
+  if(!currentProfile?.npi_verified){
+    showToast('Verify your NPI before posting — see the panel above',true);
+    document.getElementById('npi-panel').style.display='block';
+    document.getElementById('npi-verify-input')?.focus();
+    return;
+  }
   const q=document.getElementById('q-text').value.trim();
   if(!q)return showToast('Please describe the clinical question',true);
   const ddx=Array.from(document.querySelectorAll('#dx-inputs input[type=text]')).map(i=>i.value.trim()).filter(Boolean);
@@ -4796,25 +4826,25 @@ async function profileVerifyNPI(){
   const npi=input.value.trim();
   if(npi.length!==10){if(result){result.textContent='NPI must be exactly 10 digits';result.className='profile-npi-result error';}return;}
   if(btn){btn.disabled=true;btn.textContent='Checking…';}
-  if(result){result.textContent='Checking NPI Registry…';result.className='profile-npi-result loading';}
-
+  if(result){result.textContent='Contacting NPI Registry…';result.className='profile-npi-result loading';}
   const check=await checkNPIRegistry(npi);
   if(btn){btn.disabled=false;btn.textContent='Verify NPI';}
-
-  if(check.valid||check.corsBlocked){
-    const name=check.valid?`${check.data?.basic?.first_name||''} ${check.data?.basic?.last_name||''}`.trim():'';
-    if(result){
-      result.textContent=check.valid?`✓ Verified: ${name}`:'⚠️ Registry unreachable — NPI saved, pending server verification';
-      result.className='profile-npi-result success';
-    }
+  if(check.valid){
+    const label=`${check.name}${check.credential?' · '+check.credential:''} · ${check.taxonomy}`;
+    if(result){result.textContent=`✓ Verified: ${label}`;result.className='profile-npi-result success';}
     if(supabaseClient&&currentUser)
-      await supabaseClient.from('profiles').update({npi_number:npi,npi_verified:true,npi_physician_name:name||'Pending'}).eq('id',currentUser.id);
-    currentProfile={...currentProfile,npi_verified:true,npi_number:npi};
+      await supabaseClient.from('profiles').update({
+        npi_number:npi,npi_verified:true,
+        npi_physician_name:check.name,
+        npi_credential:check.credential||null,
+        npi_taxonomy:check.taxonomy||null
+      }).eq('id',currentUser.id);
+    currentProfile={...currentProfile,npi_verified:true,npi_number:npi,npi_physician_name:check.name};
     updateUserUI();
     showToast('NPI verified — MD ✓ badge unlocked');
     setTimeout(()=>renderProfile(),1500);
   } else {
-    if(result){result.textContent='✗ '+check.message;result.className='profile-npi-result error';}
+    if(result){result.textContent='✗ '+(check.message||'Verification failed');result.className='profile-npi-result error';}
   }
 }
 
