@@ -2389,12 +2389,22 @@ let meCrop={x:0,y:0,w:0,h:0};
 let meCropDrag=null; // {handle, startX,startY, origCrop}
 
 function openMediaEditor(){
+  // Guard: ensure we have something to edit
+  if(!uploadedFile&&!uploadedIsVideo){showToast('Upload a file first',true);return;}
+  // For video: must have a video element with a loaded src
+  if(uploadedIsVideo){
+    const vid=document.getElementById('video-preview');
+    if(!vid||!vid.src||vid.readyState===0){showToast('Video still loading — try again in a moment',true);return;}
+  }
+  // For image: must have image data
+  if(!uploadedIsVideo&&!uploadedImageDataUrl){showToast('Image not ready — try again',true);return;}
+
   const overlay=document.getElementById('media-editor-overlay');
   const baseCanvas=document.getElementById('me-base-canvas');
   const drawCanvas=document.getElementById('me-draw-canvas');
   overlay.style.display='flex';
   meIsVideo=uploadedIsVideo;
-  document.getElementById('me-title').textContent=meIsVideo?'Edit Video Frame Preview':'Edit Image';
+  document.getElementById('me-title').textContent=meIsVideo?'Crop Video':'Crop & Redact Image';
 
   if(meIsVideo){
     // Draw current video frame to canvas
@@ -2431,6 +2441,9 @@ function openMediaEditor(){
     img.src=uploadedImageDataUrl;
     document.getElementById('me-hint').textContent='Crop: drag handles to trim · Redact: drag to black out PHI';
   }
+  // Clear stale source references
+  meSourceImg=null;
+  meSourceVideo=null;
   window._meCropWired=false;
   meSetTool('crop');
   meRedactHistory=[];
@@ -3148,6 +3161,9 @@ async function uploadToStorage(file){
         document.getElementById('uz-icon').textContent='✗';
         document.getElementById('uz-text').textContent='Upload failed — tap to retry';
         uploadedVideoUrl=null;
+        // Keep edit bar so user can still crop
+        const editBarErr=document.getElementById('media-edit-bar');
+        if(editBarErr)editBarErr.style.display='block';
       }
       return;
     }
@@ -3160,9 +3176,12 @@ async function uploadToStorage(file){
       uploadedImageUrl=publicUrl;
       uploadedVideoUrl=null;
     }
-    setScanBadge(isVid?'✓ Video uploaded to Supabase':'✓ Uploaded to Supabase','clean');
-    showToast(isVid?'Video uploaded ✓':'ECG uploaded ✓');
+    setScanBadge(isVid?'✓ Video uploaded — crop if needed':'✓ Uploaded to Supabase','clean');
+    showToast(isVid?'Video uploaded ✓ — use Crop & Redact if needed':'ECG uploaded ✓');
     console.log('Upload success:', publicUrl);
+    // Ensure edit bar is visible after storage completes
+    const editBarAfter=document.getElementById('media-edit-bar');
+    if(editBarAfter)editBarAfter.style.display='block';
 
   }catch(e){
     console.error('Upload exception:', e.message);
@@ -3920,6 +3939,21 @@ function closePostModal(){
   document.getElementById('post-modal-overlay').classList.remove('open');
   if(!document.getElementById('case-detail-overlay').classList.contains('open'))
     document.body.style.overflow='';
+  // Reset edit bar and stale media state so next open is clean
+  const editBar=document.getElementById('media-edit-bar');
+  if(editBar)editBar.style.display='none';
+  uploadedFile=null;uploadedFileStripped=null;
+  uploadedImageUrl=null;uploadedImageDataUrl=null;
+  uploadedVideoUrl=null;uploadedIsVideo=false;
+  phiScanPassed=false;phiFindings=[];
+  document.getElementById('upload-zone').classList.remove('has-file','uploading','phi-error');
+  document.getElementById('uz-icon').textContent='⊕';
+  document.getElementById('uz-text').textContent='ECG, pacemaker report, telemetry strip, or angiogram clip';
+  document.getElementById('upload-preview').style.display='none';
+  const vp=document.getElementById('video-preview');if(vp){vp.style.display='none';vp.src='';}
+  const vw=document.getElementById('phi-video-warning');if(vw)vw.classList.remove('show');
+  document.getElementById('phi-scan-status').innerHTML='';
+  hidePHIAlert();
 }
 function openPostPanel(){openPostModal();}
 function openRespondPanel(){/* respond lives in case detail overlay */}
