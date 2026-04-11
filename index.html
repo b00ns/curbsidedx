@@ -1990,12 +1990,12 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
           <div class="uz-types">JPG · PNG · PDF · MP4 · MOV · WEBM · up to 100MB</div>
           <input type="file" accept=".jpg,.jpeg,.png,.pdf,.mp4,.mov,.webm,.avi,.m4v" id="file-input" onchange="handleUpload(this)" style="display:none;">
         </div>
+        <div id="media-edit-bar" style="display:none;margin-top:8px;" onclick="event.stopPropagation()">
+          <button onclick="event.stopPropagation();openMediaEditor()" style="width:100%;background:var(--accentbg);color:var(--accent);border:1px solid var(--accentbg2);border-radius:var(--r);padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-sans);display:flex;align-items:center;justify-content:center;gap:6px;">✂️ Crop &amp; Redact PHI <span style="font-size:10px;opacity:.7;">(remove patient info)</span></button>
+        </div>
         <div id="phi-scan-status" style="text-align:center;margin-top:4px;"></div>
         <img id="upload-preview" class="upload-preview" alt="ECG preview">
         <video id="video-preview" class="video-preview" controls muted playsinline></video>
-        <div id="media-edit-bar" style="display:none;margin-top:8px;text-align:center;" onclick="event.stopPropagation()">
-          <button onclick="event.stopPropagation();openMediaEditor()" style="background:var(--accentbg);color:var(--accent);border:1px solid var(--accentbg2);border-radius:var(--r);padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-sans);">✂️ Crop &amp; Redact PHI</button>
-        </div>
         <div class="phi-video-warning" id="phi-video-warning">
           ⚠️ <strong>Video PHI reminder:</strong> Cath lab and echo systems often embed patient name, DOB, and MRN in the video filename or burned-in overlay. Before uploading, confirm the filename contains no patient identifiers and that any on-screen patient info has been cropped or redacted.
         </div>
@@ -3036,6 +3036,9 @@ async function handleUpload(input){
   zone.classList.add('uploading');
   zone.classList.remove('has-file','phi-error');
   setScanBadge('⏳ Processing…','scanning');
+  // Show edit bar immediately — stays visible through entire upload lifecycle
+  const editBarImmediate=document.getElementById('media-edit-bar');
+  if(editBarImmediate)editBarImmediate.style.display='block';
 
   if(isVideo){
     // Video: show local blob preview, display PHI warning, skip EXIF
@@ -3195,6 +3198,9 @@ async function uploadToStorage(file){
       document.getElementById('uz-icon').textContent='✗';
       document.getElementById('uz-text').textContent='Upload failed — tap to retry';
       uploadedVideoUrl=null;
+      // Keep edit bar visible so user can still crop before re-trying
+      const editBarCatch=document.getElementById('media-edit-bar');
+      if(editBarCatch)editBarCatch.style.display='block';
     }
   }
 }
