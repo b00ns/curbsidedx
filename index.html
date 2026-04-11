@@ -130,10 +130,10 @@ html[data-theme="dark"] {
 .me-brush-size label{font-size:11px;color:#888;white-space:nowrap;}
 .me-brush-size input{width:80px;accent-color:var(--accent);}
 .media-editor-stage{flex:1;overflow:hidden;display:flex;align-items:center;justify-content:center;position:relative;background:#0a0a0a;}
-.media-editor-canvas-wrap{position:relative;display:inline-block;user-select:none;}
+.media-editor-canvas-wrap{position:relative;display:inline-flex;align-items:flex-start;user-select:none;}
 #me-base-canvas{display:block;}
 #me-draw-canvas{position:absolute;inset:0;display:block;}
-.crop-overlay{position:absolute;inset:0;pointer-events:none;}
+.crop-overlay{position:absolute;top:0;left:0;pointer-events:none;}
 .crop-box,.crop-handle{pointer-events:all;}
 .crop-shade{position:absolute;background:rgba(0,0,0,.55);}
 .crop-box{position:absolute;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.5);cursor:move;}
@@ -2388,6 +2388,33 @@ let meEraserActive=false;
 let meCrop={x:0,y:0,w:0,h:0};
 let meCropDrag=null; // {handle, startX,startY, origCrop}
 
+// ── VIDEO CROP HELPERS ────────────────────────────────────────────────
+// crop = {top, left, right, bottom} as percentages 0-100
+function videoCropStyle(crop){
+  if(!crop)return '';
+  const t=Math.max(0,crop.top||0).toFixed(2);
+  const r=Math.max(0,crop.right||0).toFixed(2);
+  const b=Math.max(0,crop.bottom||0).toFixed(2);
+  const l=Math.max(0,crop.left||0).toFixed(2);
+  if(t==='0.00'&&r==='0.00'&&b==='0.00'&&l==='0.00')return '';
+  return `clip-path:inset(${t}% ${r}% ${b}% ${l}%);`;
+}
+function videoCropWrapStyle(crop){
+  // Expand wrapper to compensate so video fills its space after clipping
+  if(!crop)return '';
+  const t=Math.max(0,crop.top||0);
+  const r=Math.max(0,crop.right||0);
+  const b=Math.max(0,crop.bottom||0);
+  const l=Math.max(0,crop.left||0);
+  if(!t&&!r&&!b&&!l)return '';
+  // Scale up so the clipped region fills the container
+  const scaleX=100/(100-l-r)||1;
+  const scaleY=100/(100-t-b)||1;
+  const offX=-(l/(100-l-r)*100)||0;
+  const offY=-(t/(100-t-b)*100)||0;
+  return `object-fit:fill;transform:translate(${offX.toFixed(2)}%,${offY.toFixed(2)}%) scale(${scaleX.toFixed(4)},${scaleY.toFixed(4)});transform-origin:top left;`;
+}
+
 function openMediaEditor(){
   // Guard: ensure we have something to edit
   if(!uploadedFile&&!uploadedIsVideo){showToast('Upload a file first',true);return;}
@@ -2407,37 +2434,60 @@ function openMediaEditor(){
   document.getElementById('me-title').textContent=meIsVideo?'Crop Video':'Crop & Redact Image';
 
   if(meIsVideo){
-    // Use a fresh offscreen video element with the CORS-safe blob URL
-    // (the visible video-preview element may have its src swapped to Supabase URL which is CORS-blocked)
-    const blobSrc=window._uploadedVideoBlobUrl||document.getElementById('video-preview')?.src||'';
-    const offVid=document.createElement('video');
-    offVid.crossOrigin='anonymous';
-    offVid.muted=true;
-    offVid.playsInline=true;
-    meSourceVideo=offVid;
+    // Show a live video directly — no canvas needed, no CORS issues
+    // Switch editor to video mode: hide canvases, show video with crop overlay
+    document.getElementById('me-base-canvas').style.display='none';
+    document.getElementById('me-draw-canvas').style.display='none';
 
-    const doInitVideo=()=>{
-      const vw=offVid.videoWidth||1280, vh=offVid.videoHeight||720;
-      meInit(vw,vh);
-      const drawFrame=()=>{
-        const ctx=baseCanvas.getContext('2d');
-        try{ctx.drawImage(offVid,0,0,meCanvasW,meCanvasH);}
-        catch(e){console.warn('Frame draw error:',e.message);}
-        meRedrawAll();
-      };
-      offVid.onseeked=drawFrame;
-      offVid.currentTime=Math.min(1,offVid.duration>0?offVid.duration*0.1:1);
-      setTimeout(drawFrame,1000); // fallback
+    // Build or reuse video element inside the stage
+    let edVid=document.getElementById('me-editor-video');
+    if(!edVid){
+      edVid=document.createElement('video');
+      edVid.id='me-editor-video';
+      edVid.controls=true;
+      edVid.playsInline=true;
+      edVid.preload='metadata';
+      edVid.style.cssText='display:block;max-width:100%;max-height:70vh;background:#000;';
+      document.getElementById('me-canvas-wrap').appendChild(edVid);
+    }
+    const blobSrc=window._uploadedVideoBlobUrl||document.getElementById('video-preview')?.src||'';
+    edVid.src=blobSrc;
+    edVid.style.display='block';
+
+    // Initialize crop state based on video dimensions once metadata loads
+    const onMeta=()=>{
+      const stageEl=document.getElementById('me-stage');
+      const maxW=stageEl.clientWidth-40, maxH=stageEl.clientHeight-120;
+      const vw=edVid.videoWidth||1280, vh=edVid.videoHeight||720;
+      meScale=Math.min(1,maxW/vw,maxH/vh);
+      meCanvasW=Math.round(vw*meScale);
+      meCanvasH=Math.round(vh*meScale);
+      edVid.style.width=meCanvasW+'px';
+      edVid.style.height=meCanvasH+'px';
+      // Reset crop to full video
+      meCrop={x:0,y:0,w:meCanvasW,h:meCanvasH};
+      // Apply any existing crop
+      if(window._currentVideoCrop){
+        const ec=window._currentVideoCrop;
+        meCrop={
+          x:Math.round(ec.left/100*meCanvasW),
+          y:Math.round(ec.top/100*meCanvasH),
+          w:Math.round((1-(ec.left+ec.right)/100)*meCanvasW),
+          h:Math.round((1-(ec.top+ec.bottom)/100)*meCanvasH)
+        };
+      }
+      // Wire crop overlay on top of video
+      const overlay=document.getElementById('me-crop-overlay');
+      overlay.style.width=meCanvasW+'px';
+      overlay.style.height=meCanvasH+'px';
+      overlay.style.display='block';
+      meRenderCropUI();
+      if(!window._meCropWired){window._meCropWired=true;meWireCropOverlay();}
     };
-    offVid.onloadedmetadata=doInitVideo;
-    offVid.onerror=(e)=>{
-      // Blob URL failed — show message
-      const ctx=baseCanvas.getContext('2d');
-      if(meCanvasW&&meCanvasH){ctx.fillStyle='#1a1a2e';ctx.fillRect(0,0,meCanvasW,meCanvasH);ctx.fillStyle='#fff';ctx.font='14px sans-serif';ctx.textAlign='center';ctx.fillText('Use crop handles to trim edges',meCanvasW/2,meCanvasH/2);}
-    };
-    offVid.src=blobSrc;
-    offVid.load();
-    document.getElementById('me-hint').textContent='Drag handles to crop edges containing patient info';
+    if(edVid.videoWidth>0){onMeta();}
+    else{edVid.onloadedmetadata=onMeta;}
+
+    document.getElementById('me-hint').textContent='Drag handles to crop out patient info from edges — crops the full video on playback';
     document.getElementById('me-erase-btn').style.display='none';
   } else {
     document.getElementById('me-erase-btn').style.display='';
@@ -2658,65 +2708,69 @@ function meReset(){
 
 function closeMediaEditor(){
   document.getElementById('media-editor-overlay').style.display='none';
+  // Restore canvas visibility in case video mode hid them
+  const bc=document.getElementById('me-base-canvas');
+  const dc=document.getElementById('me-draw-canvas');
+  const ev=document.getElementById('me-editor-video');
+  if(bc)bc.style.display='block';
+  if(dc)dc.style.display='block';
+  if(ev){ev.pause();ev.style.display='none';}
 }
 
 async function saveMediaEdit(){
-  // Build final canvas: apply crop then all redactions at native resolution
-  const OUTPUT_SCALE=1/meScale; // scale back up to original pixels
+  if(meIsVideo){
+    // VIDEO: save crop as percentages — applied via CSS on playback (whole video cropped, not just a frame)
+    const cropTop=meCanvasH>0?(meCrop.y/meCanvasH*100):0;
+    const cropLeft=meCanvasW>0?(meCrop.x/meCanvasW*100):0;
+    const cropBottom=meCanvasH>0?((meCanvasH-meCrop.y-meCrop.h)/meCanvasH*100):0;
+    const cropRight=meCanvasW>0?((meCanvasW-meCrop.x-meCrop.w)/meCanvasW*100):0;
+    const cropData={top:+cropTop.toFixed(2),left:+cropLeft.toFixed(2),bottom:+cropBottom.toFixed(2),right:+cropRight.toFixed(2)};
+    window._pendingVideoCrop=cropData;
+    window._currentVideoCrop=cropData;
+    // Reset editor video element
+    const edVid=document.getElementById('me-editor-video');
+    if(edVid){edVid.style.display='none';}
+    document.getElementById('me-base-canvas').style.display='block';
+    document.getElementById('me-draw-canvas').style.display='block';
+    closeMediaEditor();
+    const hasCrop=cropTop>0.5||cropLeft>0.5||cropBottom>0.5||cropRight>0.5;
+    showToast(hasCrop?`✓ Crop saved — will be applied on playback (top:${cropTop.toFixed(0)}% L:${cropLeft.toFixed(0)}% B:${cropBottom.toFixed(0)}% R:${cropRight.toFixed(0)}%)`:'No crop applied');
+    if(hasCrop)setScanBadge('✓ Video crop set — applied on playback','override');
+    return;
+  }
+
+  // IMAGE: use canvas to apply crop + redactions at native resolution
+  const OUTPUT_SCALE=1/meScale;
   const outW=Math.round(meCrop.w*OUTPUT_SCALE);
   const outH=Math.round(meCrop.h*OUTPUT_SCALE);
-
   const finalCanvas=document.createElement('canvas');
   finalCanvas.width=outW; finalCanvas.height=outH;
   const ctx=finalCanvas.getContext('2d');
-
-  // Draw source cropped
   const cropXNative=Math.round(meCrop.x*OUTPUT_SCALE);
   const cropYNative=Math.round(meCrop.y*OUTPUT_SCALE);
-
   if(meSourceImg){
     ctx.drawImage(meSourceImg,cropXNative,cropYNative,outW,outH,0,0,outW,outH);
-  } else if(meSourceVideo){
-    ctx.drawImage(meSourceVideo,cropXNative,cropYNative,outW,outH,0,0,outW,outH);
   }
-
-  // Apply redactions (scaled from canvas coords back to native)
   ctx.fillStyle='#000';
   meRedactHistory.forEach(r=>{
-    const rx=Math.round((r.x-meCrop.x)*OUTPUT_SCALE);
-    const ry=Math.round((r.y-meCrop.y)*OUTPUT_SCALE);
-    const rw=Math.round(r.w*OUTPUT_SCALE);
-    const rh=Math.round(r.h*OUTPUT_SCALE);
-    ctx.fillRect(rx,ry,rw,rh);
+    ctx.fillRect(Math.round((r.x-meCrop.x)*OUTPUT_SCALE),Math.round((r.y-meCrop.y)*OUTPUT_SCALE),Math.round(r.w*OUTPUT_SCALE),Math.round(r.h*OUTPUT_SCALE));
   });
-
-  // Convert to blob and replace uploadedFile
   const blob=await new Promise(res=>finalCanvas.toBlob(res,'image/jpeg',0.93));
   const editedFile=new File([blob],'edited_ecg.jpg',{type:'image/jpeg'});
   const dataUrl=finalCanvas.toDataURL('image/jpeg',0.93);
-
   uploadedFile=editedFile;
   uploadedFileStripped=editedFile;
   uploadedImageDataUrl=dataUrl;
-  uploadedImageUrl=null; // force re-upload of edited version
-  uploadedVideoUrl=null; // no longer a video
-  uploadedIsVideo=false; // edited frame becomes image
-
-  // Update preview
+  uploadedImageUrl=null;
+  uploadedVideoUrl=null;
+  uploadedIsVideo=false;
   const imgPreview=document.getElementById('upload-preview');
   const vidPreview=document.getElementById('video-preview');
   if(imgPreview){imgPreview.src=dataUrl;imgPreview.style.display='block';}
   if(vidPreview){vidPreview.style.display='none';}
-
-  // Upload the edited image to storage
-  try{
-    await uploadToStorage(editedFile);
-  }catch(e){
-    console.warn('Edited image upload failed:',e);
-  }
-
+  try{await uploadToStorage(editedFile);}catch(e){console.warn('Edited image upload:',e);}
   closeMediaEditor();
-  const cropApplied=(meCrop.x>0||meCrop.y>0||meCrop.w<meCanvasW||meCrop.h<meCanvasH);
+  const cropApplied=(meCrop.x>0.5||meCrop.y>0.5||meCrop.w<meCanvasW-0.5||meCrop.h<meCanvasH-0.5);
   const redactApplied=meRedactHistory.length>0;
   let msg='Media saved';
   if(cropApplied&&redactApplied) msg='✓ Cropped + '+meRedactHistory.length+' redaction(s) applied';
@@ -3284,6 +3338,7 @@ function mapDBCase(row){
   ecgImageUrl:row.ecg_image_url||null,
   videoUrl:row.video_url||null,
   isVideo:!!row.video_url,
+  videoCrop:row.video_crop?JSON.parse(row.video_crop):null,
   ecgType:row.ecg_label||'ECG',ddx:row.ddx||[],
   votes:row.votes||(row.ddx||[]).map(()=>0),
   resolvedDx:row.resolved_dx||null,resolvedNote:row.resolved_note||null,
@@ -3334,6 +3389,7 @@ async function persistCase(caseData){
     ddx:caseData.ddx,votes:caseData.votes,total_votes:0,
     ecg_image_url:caseData.ecgImageUrl||null,ecg_label:caseData.ecgType||null,
     video_url:caseData.videoUrl||null,
+    video_crop:caseData.videoCrop?JSON.stringify(caseData.videoCrop):null,
     status:'open',expires_at:expiresAt,resolved_dx:null,resolved_note:null
   }).select().single();
   if(error){console.error('persistCase error:',error);throw new Error(error.message||'Database error saving case');}return data;
@@ -3389,9 +3445,10 @@ function renderECGThumb(c){
   if(c.videoUrl){
     // Use a unique ID so we can seek to first frame for thumbnail
     const vid=`vid-${c.id}`;
-    return`<div class="case-video-wrap">
+    const cropS=c.videoCrop?videoCropStyle(c.videoCrop):'';
+    return`<div class="case-video-wrap" style="overflow:hidden;">
       <video id="${vid}" src="${c.videoUrl}#t=0.5" muted playsinline preload="metadata"
-        style="width:100%;max-height:220px;display:block;object-fit:contain;background:#111;"
+        style="width:100%;max-height:220px;display:block;object-fit:contain;background:#111;${cropS}"
         onloadeddata="this.currentTime=0.5"
         onmouseenter="this.play()" onmouseleave="this.pause();this.currentTime=0.5"></video>
       <div class="ecg-overlay">
@@ -3754,6 +3811,7 @@ async function submitCase(){
       ecgImageUrl:finalEcgUrl,
       videoUrl:finalVideoUrl,
       isVideo:uploadedIsVideo,
+      videoCrop:window._pendingVideoCrop||null,
       ecgType:uploadedFile?uploadedFile.name.split('.')[0]:null,
       ddx,votes:ddx.map(()=>0),resolvedDx:null,resolvedNote:null,status:'open',responses:[]
     };
@@ -3972,6 +4030,7 @@ function closePostModal(){
   uploadedImageUrl=null;uploadedImageDataUrl=null;
   uploadedVideoUrl=null;uploadedIsVideo=false;
   if(window._uploadedVideoBlobUrl){URL.revokeObjectURL(window._uploadedVideoBlobUrl);window._uploadedVideoBlobUrl=null;}
+  window._pendingVideoCrop=null;window._currentVideoCrop=null;
   phiScanPassed=false;phiFindings=[];
   document.getElementById('upload-zone').classList.remove('has-file','uploading','phi-error');
   document.getElementById('uz-icon').textContent='⊕';
@@ -4590,8 +4649,9 @@ function openCaseDetail(id){
         <div class="cd-ecg-label-left">🎬 Angiogram / Video clip</div>
         <div class="cd-ecg-label-right">De-identified ✓</div>
       </div>
-      <div class="cd-video-player-wrap">
-        <video class="cd-video-player" src="${c.videoUrl}" controls playsinline preload="metadata">
+      <div class="cd-video-player-wrap" style="overflow:hidden;">
+        <video class="cd-video-player" src="${c.videoUrl}" controls playsinline preload="metadata"
+          style="${c.videoCrop?videoCropStyle(c.videoCrop):''}">
         </video>
       </div>
     </div>`;
