@@ -2407,27 +2407,38 @@ function openMediaEditor(){
   document.getElementById('me-title').textContent=meIsVideo?'Crop Video':'Crop & Redact Image';
 
   if(meIsVideo){
-    // Draw current video frame to canvas
-    const vid=document.getElementById('video-preview');
-    meSourceVideo=vid;
+    // Use a fresh offscreen video element with the CORS-safe blob URL
+    // (the visible video-preview element may have its src swapped to Supabase URL which is CORS-blocked)
+    const blobSrc=window._uploadedVideoBlobUrl||document.getElementById('video-preview')?.src||'';
+    const offVid=document.createElement('video');
+    offVid.crossOrigin='anonymous';
+    offVid.muted=true;
+    offVid.playsInline=true;
+    meSourceVideo=offVid;
+
     const doInitVideo=()=>{
-      const vw=vid.videoWidth||1280, vh=vid.videoHeight||720;
+      const vw=offVid.videoWidth||1280, vh=offVid.videoHeight||720;
       meInit(vw,vh);
-      // Draw frame: seek then draw on onseeked, with timeout fallback
       const drawFrame=()=>{
         const ctx=baseCanvas.getContext('2d');
-        try{ctx.drawImage(vid,0,0,meCanvasW,meCanvasH);}catch(e){}
+        try{ctx.drawImage(offVid,0,0,meCanvasW,meCanvasH);}
+        catch(e){console.warn('Frame draw error:',e.message);}
         meRedrawAll();
       };
-      vid.onseeked=drawFrame;
-      vid.currentTime=Math.min(0.5,vid.duration>0?vid.duration*0.1:0.5);
-      // Fallback: draw whatever is there after 800ms
-      setTimeout(drawFrame,800);
+      offVid.onseeked=drawFrame;
+      offVid.currentTime=Math.min(1,offVid.duration>0?offVid.duration*0.1:1);
+      setTimeout(drawFrame,1000); // fallback
     };
-    if(vid.videoWidth>0){doInitVideo();}
-    else{vid.onloadedmetadata=doInitVideo; if(vid.readyState>=1)doInitVideo();}
-    document.getElementById('me-hint').textContent='Drag handles to crop out patient info from edges · This crops the video display frame';
-    document.getElementById('me-erase-btn').style.display='none'; // Erase not applicable to video
+    offVid.onloadedmetadata=doInitVideo;
+    offVid.onerror=(e)=>{
+      // Blob URL failed — show message
+      const ctx=baseCanvas.getContext('2d');
+      if(meCanvasW&&meCanvasH){ctx.fillStyle='#1a1a2e';ctx.fillRect(0,0,meCanvasW,meCanvasH);ctx.fillStyle='#fff';ctx.font='14px sans-serif';ctx.textAlign='center';ctx.fillText('Use crop handles to trim edges',meCanvasW/2,meCanvasH/2);}
+    };
+    offVid.src=blobSrc;
+    offVid.load();
+    document.getElementById('me-hint').textContent='Drag handles to crop edges containing patient info';
+    document.getElementById('me-erase-btn').style.display='none';
   } else {
     document.getElementById('me-erase-btn').style.display='';
     const img=new Image();
@@ -2688,13 +2699,21 @@ async function saveMediaEdit(){
   uploadedFileStripped=editedFile;
   uploadedImageDataUrl=dataUrl;
   uploadedImageUrl=null; // force re-upload of edited version
-  uploadedIsVideo=false; // edited video frame becomes image
+  uploadedVideoUrl=null; // no longer a video
+  uploadedIsVideo=false; // edited frame becomes image
 
   // Update preview
   const imgPreview=document.getElementById('upload-preview');
   const vidPreview=document.getElementById('video-preview');
   if(imgPreview){imgPreview.src=dataUrl;imgPreview.style.display='block';}
   if(vidPreview){vidPreview.style.display='none';}
+
+  // Upload the edited image to storage
+  try{
+    await uploadToStorage(editedFile);
+  }catch(e){
+    console.warn('Edited image upload failed:',e);
+  }
 
   closeMediaEditor();
   const cropApplied=(meCrop.x>0||meCrop.y>0||meCrop.w<meCanvasW||meCrop.h<meCanvasH);
@@ -3043,6 +3062,7 @@ async function handleUpload(input){
   if(isVideo){
     // Video: show local blob preview, display PHI warning, skip EXIF
     const blobUrl=URL.createObjectURL(rawFile);
+    window._uploadedVideoBlobUrl=blobUrl; // store for editor (CORS-safe)
     if(vidPreview){
       vidPreview.src=blobUrl;
       vidPreview.style.display='block';
@@ -3951,6 +3971,7 @@ function closePostModal(){
   uploadedFile=null;uploadedFileStripped=null;
   uploadedImageUrl=null;uploadedImageDataUrl=null;
   uploadedVideoUrl=null;uploadedIsVideo=false;
+  if(window._uploadedVideoBlobUrl){URL.revokeObjectURL(window._uploadedVideoBlobUrl);window._uploadedVideoBlobUrl=null;}
   phiScanPassed=false;phiFindings=[];
   document.getElementById('upload-zone').classList.remove('has-file','uploading','phi-error');
   document.getElementById('uz-icon').textContent='⊕';
