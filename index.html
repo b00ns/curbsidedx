@@ -114,6 +114,41 @@ html[data-theme="dark"] {
 .lb-avatar-wrap{width:30px;height:30px;border-radius:50%;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;}
 .lb-avatar-wrap img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
 
+/* ══ MEDIA EDITOR MODAL ══════════════════════════════════════════════ */
+.media-editor-overlay{position:fixed;inset:0;background:#000;z-index:10000;display:flex;flex-direction:column;}
+.media-editor-topbar{display:flex;align-items:center;gap:12px;padding:10px 16px;background:#111;border-bottom:1px solid rgba(255,255,255,.1);flex-shrink:0;}
+.media-editor-title{font-size:13px;font-weight:600;color:#fff;flex:1;}
+.me-tool-btn{display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:transparent;color:#ccc;font-family:var(--font-sans);font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;white-space:nowrap;}
+.me-tool-btn:hover{background:rgba(255,255,255,.08);color:#fff;}
+.me-tool-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+.me-tool-btn.danger{border-color:rgba(239,68,68,.4);color:#f87171;}
+.me-tool-btn.danger:hover{background:rgba(239,68,68,.15);}
+.me-tool-btn.save{background:#22c55e;border-color:#22c55e;color:#fff;font-weight:600;}
+.me-tool-btn.save:hover{opacity:.88;}
+.me-separator{width:1px;height:24px;background:rgba(255,255,255,.12);flex-shrink:0;}
+.me-brush-size{display:flex;align-items:center;gap:8px;}
+.me-brush-size label{font-size:11px;color:#888;white-space:nowrap;}
+.me-brush-size input{width:80px;accent-color:var(--accent);}
+.media-editor-stage{flex:1;overflow:hidden;display:flex;align-items:center;justify-content:center;position:relative;background:#0a0a0a;}
+.media-editor-canvas-wrap{position:relative;display:inline-block;user-select:none;}
+#me-base-canvas{display:block;}
+#me-draw-canvas{position:absolute;inset:0;display:block;}
+.crop-overlay{position:absolute;inset:0;pointer-events:none;}
+.crop-shade{position:absolute;background:rgba(0,0,0,.55);}
+.crop-box{position:absolute;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.5);cursor:move;}
+.crop-handle{position:absolute;width:12px;height:12px;background:#fff;border-radius:2px;border:1px solid rgba(0,0,0,.3);}
+.crop-handle.nw{top:-6px;left:-6px;cursor:nw-resize;}
+.crop-handle.ne{top:-6px;right:-6px;cursor:ne-resize;}
+.crop-handle.sw{bottom:-6px;left:-6px;cursor:sw-resize;}
+.crop-handle.se{bottom:-6px;right:-6px;cursor:se-resize;}
+.crop-handle.n{top:-6px;left:calc(50% - 6px);cursor:n-resize;}
+.crop-handle.s{bottom:-6px;left:calc(50% - 6px);cursor:s-resize;}
+.crop-handle.e{right:-6px;top:calc(50% - 6px);cursor:e-resize;}
+.crop-handle.w{left:-6px;top:calc(50% - 6px);cursor:w-resize;}
+.media-editor-hint{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);font-size:11px;color:rgba(255,255,255,.35);pointer-events:none;white-space:nowrap;}
+.me-undo-btn{opacity:.7;}
+.me-undo-btn:hover{opacity:1;}
+
 *{box-sizing:border-box;margin:0;padding:0;}
 html{height:100%;height:100dvh;background:var(--bg2);}
 body{font-family:var(--font-sans);background:var(--bg);color:var(--text);overflow:hidden;height:100%;min-height:100dvh;}
@@ -1957,6 +1992,9 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
         <div id="phi-scan-status" style="text-align:center;margin-top:4px;"></div>
         <img id="upload-preview" class="upload-preview" alt="ECG preview">
         <video id="video-preview" class="video-preview" controls muted playsinline></video>
+        <div id="media-edit-bar" style="display:none;margin-top:8px;text-align:center;">
+          <button onclick="openMediaEditor()" style="background:var(--accentbg);color:var(--accent);border:1px solid var(--accentbg2);border-radius:var(--r);padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-sans);">✂️ Crop &amp; Redact PHI</button>
+        </div>
         <div class="phi-video-warning" id="phi-video-warning">
           ⚠️ <strong>Video PHI reminder:</strong> Cath lab and echo systems often embed patient name, DOB, and MRN in the video filename or burned-in overlay. Before uploading, confirm the filename contains no patient identifiers and that any on-screen patient info has been cropped or redacted.
         </div>
@@ -2331,6 +2369,295 @@ async function fetchProfile(){
     console.warn('fetchProfile error:',e.message);
   }
 }
+// ══════════════════════════════════════════════════════════════════════
+// MEDIA EDITOR — Crop + Redact (erase) for ECG images and videos
+// ══════════════════════════════════════════════════════════════════════
+let meTool='crop'; // 'crop' | 'erase'
+let meBrushSize=40;
+let meSourceImg=null;   // original HTMLImageElement
+let meSourceVideo=null; // HTMLVideoElement for video frame
+let meIsVideo=false;
+let meCanvasW=0, meCanvasH=0;
+let meScale=1; // display scale
+let meRedactHistory=[]; // array of {x,y,w,h} in canvas coords
+let meCurrentRedact=null;
+let meEraserActive=false;
+
+// Crop state (in canvas-pixel coords)
+let meCrop={x:0,y:0,w:0,h:0};
+let meCropDrag=null; // {handle, startX,startY, origCrop}
+
+function openMediaEditor(){
+  const overlay=document.getElementById('media-editor-overlay');
+  const baseCanvas=document.getElementById('me-base-canvas');
+  const drawCanvas=document.getElementById('me-draw-canvas');
+  overlay.style.display='flex';
+  meIsVideo=uploadedIsVideo;
+  document.getElementById('me-title').textContent=meIsVideo?'Edit Video Frame Preview':'Edit Image';
+
+  if(meIsVideo){
+    // Draw current video frame to canvas
+    const vid=document.getElementById('video-preview');
+    meSourceVideo=vid;
+    const vw=vid.videoWidth||640, vh=vid.videoHeight||360;
+    meInit(vw,vh);
+    const ctx=baseCanvas.getContext('2d');
+    ctx.drawImage(vid,0,0,meCanvasW,meCanvasH);
+    meRedrawAll();
+    document.getElementById('me-hint').textContent='Crop only — use handles to trim edges containing patient info';
+  } else {
+    const img=new Image();
+    img.onload=()=>{
+      meSourceImg=img;
+      meInit(img.naturalWidth,img.naturalHeight);
+      const ctx=baseCanvas.getContext('2d');
+      ctx.drawImage(img,0,0,meCanvasW,meCanvasH);
+      meRedrawAll();
+    };
+    img.src=uploadedImageDataUrl;
+    document.getElementById('me-hint').textContent='Crop: drag handles to trim · Redact: drag to black out PHI';
+  }
+  meSetTool('crop');
+  meRedactHistory=[];
+}
+
+function meInit(srcW,srcH){
+  const stage=document.getElementById('me-stage');
+  const maxW=stage.clientWidth-40, maxH=stage.clientHeight-40;
+  meScale=Math.min(1,maxW/srcW,maxH/srcH);
+  meCanvasW=Math.round(srcW*meScale);
+  meCanvasH=Math.round(srcH*meScale);
+
+  const baseCanvas=document.getElementById('me-base-canvas');
+  const drawCanvas=document.getElementById('me-draw-canvas');
+  baseCanvas.width=meCanvasW; baseCanvas.height=meCanvasH;
+  drawCanvas.width=meCanvasW; drawCanvas.height=meCanvasH;
+  drawCanvas.style.width=meCanvasW+'px'; drawCanvas.style.height=meCanvasH+'px';
+  baseCanvas.style.width=meCanvasW+'px'; baseCanvas.style.height=meCanvasH+'px';
+
+  // Reset crop to full image
+  meCrop={x:0,y:0,w:meCanvasW,h:meCanvasH};
+  meRenderCropUI();
+  meWireDrawCanvas();
+}
+
+function meSetTool(tool){
+  meTool=tool;
+  document.getElementById('me-crop-btn').classList.toggle('active',tool==='crop');
+  document.getElementById('me-erase-btn').classList.toggle('active',tool==='erase');
+  document.getElementById('me-brush-controls').style.display=tool==='erase'?'flex':'none';
+  document.getElementById('me-crop-overlay').style.display=tool==='crop'?'block':'none';
+  document.getElementById('me-draw-canvas').style.cursor=tool==='erase'?'crosshair':'default';
+  const hint=document.getElementById('me-hint');
+  hint.textContent=tool==='erase'?'Drag to black out sensitive info (names, MRN, DOB, etc.)':'Drag handles or corners to crop out patient info from edges';
+}
+
+// ── CROP UI ────────────────────────────────────────────────────────────
+function meRenderCropUI(){
+  const overlay=document.getElementById('me-crop-overlay');
+  const {x,y,w,h}=meCrop;
+  const W=meCanvasW,H=meCanvasH;
+  overlay.innerHTML=`
+    <div class="crop-shade" style="left:0;top:0;width:${x}px;height:${H}px;"></div>
+    <div class="crop-shade" style="left:${x+w}px;top:0;width:${W-x-w}px;height:${H}px;"></div>
+    <div class="crop-shade" style="left:${x}px;top:0;width:${w}px;height:${y}px;"></div>
+    <div class="crop-shade" style="left:${x}px;top:${y+h}px;width:${w}px;height:${H-y-h}px;"></div>
+    <div class="crop-box" id="me-crop-box" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px;">
+      <div class="crop-handle nw" data-h="nw"></div>
+      <div class="crop-handle ne" data-h="ne"></div>
+      <div class="crop-handle sw" data-h="sw"></div>
+      <div class="crop-handle se" data-h="se"></div>
+      <div class="crop-handle n" data-h="n"></div>
+      <div class="crop-handle s" data-h="s"></div>
+      <div class="crop-handle e" data-h="e"></div>
+      <div class="crop-handle w" data-h="w"></div>
+    </div>`;
+
+  // Wire crop drag
+  const box=document.getElementById('me-crop-box');
+  overlay.querySelectorAll('.crop-handle').forEach(h=>{
+    h.addEventListener('mousedown',e=>{e.stopPropagation();meCropDrag={handle:h.dataset.h,startX:e.clientX,startY:e.clientY,origCrop:{...meCrop}};e.preventDefault();});
+  });
+  box.addEventListener('mousedown',e=>{
+    if(e.target.classList.contains('crop-handle'))return;
+    meCropDrag={handle:'move',startX:e.clientX,startY:e.clientY,origCrop:{...meCrop}};e.preventDefault();
+  });
+}
+
+document.addEventListener('mousemove',e=>{
+  if(!meCropDrag)return;
+  const dx=e.clientX-meCropDrag.startX, dy=e.clientY-meCropDrag.startY;
+  const o=meCropDrag.origCrop;
+  const MIN=20,W=meCanvasW,H=meCanvasH;
+  let {x,y,w,h}={...o};
+  const handle=meCropDrag.handle;
+  if(handle==='move'){x=Math.max(0,Math.min(W-w,o.x+dx));y=Math.max(0,Math.min(H-h,o.y+dy));}
+  else{
+    if(handle.includes('e')){w=Math.max(MIN,Math.min(W-x,o.w+dx));}
+    if(handle.includes('w')){const nx=Math.max(0,Math.min(o.x+o.w-MIN,o.x+dx));w=o.x+o.w-nx;x=nx;}
+    if(handle.includes('s')){h=Math.max(MIN,Math.min(H-y,o.h+dy));}
+    if(handle.includes('n')){const ny=Math.max(0,Math.min(o.y+o.h-MIN,o.y+dy));h=o.y+o.h-ny;y=ny;}
+  }
+  meCrop={x:Math.round(x),y:Math.round(y),w:Math.round(w),h:Math.round(h)};
+  meRenderCropUI();
+});
+document.addEventListener('mouseup',()=>{meCropDrag=null;});
+
+// ── ERASE (REDACT) ─────────────────────────────────────────────────────
+function meWireDrawCanvas(){
+  const dc=document.getElementById('me-draw-canvas');
+  let drawing=false, startX=0, startY=0;
+
+  dc.onmousedown=e=>{
+    if(meTool!=='erase')return;
+    drawing=true;
+    const r=dc.getBoundingClientRect();
+    startX=e.clientX-r.left; startY=e.clientY-r.top;
+    e.preventDefault();
+  };
+  dc.onmousemove=e=>{
+    if(!drawing||meTool!=='erase')return;
+    const r=dc.getBoundingClientRect();
+    const cx=e.clientX-r.left, cy=e.clientY-r.top;
+    // Live preview — clear draw canvas and show current rect
+    const dctx=dc.getContext('2d');
+    dctx.clearRect(0,0,dc.width,dc.height);
+    dctx.fillStyle='rgba(0,0,0,0.6)';
+    dctx.fillRect(Math.min(startX,cx),Math.min(startY,cy),Math.abs(cx-startX),Math.abs(cy-startY));
+  };
+  dc.onmouseup=e=>{
+    if(!drawing||meTool!=='erase')return;
+    drawing=false;
+    const r=dc.getBoundingClientRect();
+    const cx=e.clientX-r.left, cy=e.clientY-r.top;
+    const rx=Math.min(startX,cx), ry=Math.min(startY,cy);
+    const rw=Math.abs(cx-startX), rh=Math.abs(cy-startY);
+    if(rw<4||rh<4){document.getElementById('me-draw-canvas').getContext('2d').clearRect(0,0,meCanvasW,meCanvasH);return;}
+    meRedactHistory.push({x:rx,y:ry,w:rw,h:rh});
+    document.getElementById('me-draw-canvas').getContext('2d').clearRect(0,0,meCanvasW,meCanvasH);
+    meRedrawAll();
+  };
+
+  // Touch support
+  dc.ontouchstart=e=>{
+    if(meTool!=='erase')return;
+    const r=dc.getBoundingClientRect();
+    startX=e.touches[0].clientX-r.left; startY=e.touches[0].clientY-r.top;
+    drawing=true; e.preventDefault();
+  };
+  dc.ontouchmove=e=>{
+    if(!drawing||meTool!=='erase')return;
+    const r=dc.getBoundingClientRect();
+    const cx=e.touches[0].clientX-r.left, cy=e.touches[0].clientY-r.top;
+    const dctx=dc.getContext('2d');
+    dctx.clearRect(0,0,dc.width,dc.height);
+    dctx.fillStyle='rgba(0,0,0,0.6)';
+    dctx.fillRect(Math.min(startX,cx),Math.min(startY,cy),Math.abs(cx-startX),Math.abs(cy-startY));
+    e.preventDefault();
+  };
+  dc.ontouchend=e=>{
+    if(!drawing||meTool!=='erase')return;
+    drawing=false;
+    const r=dc.getBoundingClientRect();
+    const cx=e.changedTouches[0].clientX-r.left, cy=e.changedTouches[0].clientY-r.top;
+    const rx=Math.min(startX,cx), ry=Math.min(startY,cy);
+    const rw=Math.abs(cx-startX), rh=Math.abs(cy-startY);
+    if(rw<4||rh<4)return;
+    meRedactHistory.push({x:rx,y:ry,w:rw,h:rh});
+    document.getElementById('me-draw-canvas').getContext('2d').clearRect(0,0,meCanvasW,meCanvasH);
+    meRedrawAll();
+  };
+}
+
+function meRedrawAll(){
+  const bc=document.getElementById('me-base-canvas');
+  const ctx=bc.getContext('2d');
+  ctx.clearRect(0,0,meCanvasW,meCanvasH);
+  if(meSourceImg) ctx.drawImage(meSourceImg,0,0,meCanvasW,meCanvasH);
+  else if(meSourceVideo) ctx.drawImage(meSourceVideo,0,0,meCanvasW,meCanvasH);
+  // Draw all redactions
+  ctx.fillStyle='#000';
+  meRedactHistory.forEach(r=>ctx.fillRect(r.x,r.y,r.w,r.h));
+}
+
+function meUndo(){
+  if(meRedactHistory.length===0){showToast('Nothing to undo',true);return;}
+  meRedactHistory.pop();
+  meRedrawAll();
+  showToast('Redaction removed');
+}
+
+function meReset(){
+  meRedactHistory=[];
+  meCrop={x:0,y:0,w:meCanvasW,h:meCanvasH};
+  meRedrawAll();
+  meRenderCropUI();
+  showToast('Reset to original');
+}
+
+function closeMediaEditor(){
+  document.getElementById('media-editor-overlay').style.display='none';
+}
+
+async function saveMediaEdit(){
+  // Build final canvas: apply crop then all redactions at native resolution
+  const OUTPUT_SCALE=1/meScale; // scale back up to original pixels
+  const outW=Math.round(meCrop.w*OUTPUT_SCALE);
+  const outH=Math.round(meCrop.h*OUTPUT_SCALE);
+
+  const finalCanvas=document.createElement('canvas');
+  finalCanvas.width=outW; finalCanvas.height=outH;
+  const ctx=finalCanvas.getContext('2d');
+
+  // Draw source cropped
+  const cropXNative=Math.round(meCrop.x*OUTPUT_SCALE);
+  const cropYNative=Math.round(meCrop.y*OUTPUT_SCALE);
+
+  if(meSourceImg){
+    ctx.drawImage(meSourceImg,cropXNative,cropYNative,outW,outH,0,0,outW,outH);
+  } else if(meSourceVideo){
+    ctx.drawImage(meSourceVideo,cropXNative,cropYNative,outW,outH,0,0,outW,outH);
+  }
+
+  // Apply redactions (scaled from canvas coords back to native)
+  ctx.fillStyle='#000';
+  meRedactHistory.forEach(r=>{
+    const rx=Math.round((r.x-meCrop.x)*OUTPUT_SCALE);
+    const ry=Math.round((r.y-meCrop.y)*OUTPUT_SCALE);
+    const rw=Math.round(r.w*OUTPUT_SCALE);
+    const rh=Math.round(r.h*OUTPUT_SCALE);
+    ctx.fillRect(rx,ry,rw,rh);
+  });
+
+  // Convert to blob and replace uploadedFile
+  const blob=await new Promise(res=>finalCanvas.toBlob(res,'image/jpeg',0.93));
+  const editedFile=new File([blob],'edited_ecg.jpg',{type:'image/jpeg'});
+  const dataUrl=finalCanvas.toDataURL('image/jpeg',0.93);
+
+  uploadedFile=editedFile;
+  uploadedFileStripped=editedFile;
+  uploadedImageDataUrl=dataUrl;
+  uploadedImageUrl=null; // force re-upload of edited version
+  uploadedIsVideo=false; // edited video frame becomes image
+
+  // Update preview
+  const imgPreview=document.getElementById('upload-preview');
+  const vidPreview=document.getElementById('video-preview');
+  if(imgPreview){imgPreview.src=dataUrl;imgPreview.style.display='block';}
+  if(vidPreview){vidPreview.style.display='none';}
+
+  closeMediaEditor();
+  const cropApplied=(meCrop.x>0||meCrop.y>0||meCrop.w<meCanvasW||meCrop.h<meCanvasH);
+  const redactApplied=meRedactHistory.length>0;
+  let msg='Media saved';
+  if(cropApplied&&redactApplied) msg='✓ Cropped + '+meRedactHistory.length+' redaction(s) applied';
+  else if(cropApplied) msg='✓ Crop applied';
+  else if(redactApplied) msg='✓ '+meRedactHistory.length+' redaction(s) applied';
+  showToast(msg);
+  setScanBadge('✓ Edited — crop/redact applied','override');
+}
+
+
 function showAuthError(form,msg){
   const el=document.getElementById(form+'-error');el.textContent=msg;el.classList.add('show');
   setTimeout(()=>el.classList.remove('show'),5000);
@@ -2684,6 +3011,8 @@ async function handleUpload(input){
     zone.classList.add('has-file');
     document.getElementById('uz-icon').textContent='🎬';
     document.getElementById('uz-text').textContent='✓ '+rawFile.name;
+    const editBarV=document.getElementById('media-edit-bar');
+    if(editBarV)editBarV.style.display='block';
 
     uploadedImageDataUrl=null;
     await uploadToStorage(rawFile);
@@ -2696,6 +3025,8 @@ async function handleUpload(input){
     reader.onload=e=>{
       uploadedImageDataUrl=e.target.result;
       if(imgPreview){imgPreview.src=e.target.result;imgPreview.style.display='block';}
+      const editBar=document.getElementById('media-edit-bar');
+      if(editBar)editBar.style.display='block';
     };
     reader.readAsDataURL(rawFile);
 
@@ -5654,6 +5985,33 @@ function toggleTheme(){
       <button class="avatar-picker-cancel" onclick="closeAvatarPicker()">Cancel</button>
       <button class="avatar-picker-save" id="avatar-picker-save-btn" onclick="saveAvatarFromPicker()">Save photo</button>
     </div>
+  </div>
+</div>
+
+<!-- ══ MEDIA EDITOR MODAL ══════════════════════════════════════════════ -->
+<div id="media-editor-overlay" class="media-editor-overlay" style="display:none;">
+  <div class="media-editor-topbar">
+    <span class="media-editor-title" id="me-title">Edit Media</span>
+    <button class="me-tool-btn active" id="me-crop-btn" onclick="meSetTool('crop')">✂️ Crop</button>
+    <button class="me-tool-btn" id="me-erase-btn" onclick="meSetTool('erase')">⬛ Redact</button>
+    <div class="me-separator"></div>
+    <div class="me-brush-size" id="me-brush-controls" style="display:none;">
+      <label>Size</label>
+      <input type="range" id="me-brush-size" min="10" max="120" value="40" oninput="meBrushSize=parseInt(this.value)">
+    </div>
+    <button class="me-tool-btn me-undo-btn" onclick="meUndo()" title="Undo last redaction">↩ Undo</button>
+    <button class="me-tool-btn danger" onclick="meReset()">Reset</button>
+    <div class="me-separator"></div>
+    <button class="me-tool-btn" onclick="closeMediaEditor()">Cancel</button>
+    <button class="me-tool-btn save" onclick="saveMediaEdit()">✓ Done</button>
+  </div>
+  <div class="media-editor-stage" id="me-stage">
+    <div class="media-editor-canvas-wrap" id="me-canvas-wrap">
+      <canvas id="me-base-canvas"></canvas>
+      <canvas id="me-draw-canvas"></canvas>
+      <div class="crop-overlay" id="me-crop-overlay"></div>
+    </div>
+    <div class="media-editor-hint" id="me-hint">Drag corners or edges to crop · Switch to Redact to black out sensitive info</div>
   </div>
 </div>
 </body>
