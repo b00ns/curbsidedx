@@ -579,6 +579,11 @@ input::placeholder{color:var(--text3);}
   font-family:var(--font-sans);transition:all .15s;flex-shrink:0;
 }
 .cd-back-btn:hover{background:var(--card2);color:var(--text);border-color:rgba(255,255,255,.2);}
+.cd-back-short{display:none;}
+@media(max-width:600px){
+  .cd-back-full{display:none;}
+  .cd-back-short{display:inline;}
+}
 .cd-header-title{font-size:14px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .cd-header-meta{display:flex;align-items:center;gap:8px;margin-left:auto;flex-shrink:0;}
 .cd-live-responses{
@@ -731,6 +736,10 @@ input::placeholder{color:var(--text3);}
   }
   .cd-header-title{font-size:13px;}
   .cd-back-btn{font-size:12px;padding:5px 10px;}
+  .cd-header-left{gap:6px;min-width:0;flex-shrink:1;}
+  .cd-header-meta{gap:5px;flex-shrink:0;}
+  .cd-header-title{display:none;} /* too cramped on mobile */
+  .cd-live-responses{font-size:10px;padding:3px 7px;}
   .cd-question-text{font-size:13px;line-height:1.65;}
   .cd-question-block{padding:14px 16px;}
   .cd-consensus-section{padding:16px 14px 12px;}
@@ -1094,7 +1103,10 @@ html[data-theme="light"] .ecg-thumb{background:var(--ecg-bg);}
 .cd-delete-btn:hover{background:rgba(239,68,68,.2)!important;}
 @media(max-width:600px){
   .cd-author-btn span{display:none;}
-  .cd-author-btn{padding:5px 9px;}
+  .cd-author-btn{padding:5px 9px;font-size:14px;}
+  /* Shorten response count — hide " responses" label */
+  #cd-resp-count-badge .resp-label{display:none;}
+  .cd-live-responses{padding:3px 8px;gap:4px;font-size:11px;}
 }
 
 /* Resolved state banner in detail overlay */
@@ -2102,13 +2114,13 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
   <div class="case-detail-shell">
     <div class="cd-header">
       <div class="cd-header-left">
-        <button class="cd-back-btn" onclick="closeCaseDetail()">← Back to feed</button>
+        <button class="cd-back-btn" onclick="closeCaseDetail()"><span class="cd-back-full">← Back to feed</span><span class="cd-back-short">←</span></button>
         <span class="cd-header-title" id="cd-header-title">Case detail</span>
       </div>
       <div class="cd-header-meta">
         <div class="cd-live-responses">
           <div class="cd-live-dot"></div>
-          <span id="cd-resp-count-badge">0 responses</span>
+          <span id="cd-resp-count-badge"><span id="cd-resp-num">0</span><span class="resp-label"> responses</span></span>
         </div>
         <!-- Author-only controls — shown/hidden by renderCDAuthorControls() -->
         <div id="cd-author-controls" style="display:none;align-items:center;gap:6px;">
@@ -2597,16 +2609,24 @@ function meSetTool(tool){
 // Draws entirely on a canvas — zero DOM manipulation during drag = buttery smooth
 let _cropCanvas=null,_cropCtx=null;
 // Handle touch radius — bigger on mobile
-const HANDLE_R=()=>window.innerWidth<=900?22:10;
-const HANDLE_HIT=()=>window.innerWidth<=900?36:18; // hit-test radius
+const HANDLE_R=()=>window.innerWidth<=900?14:10;
+const HANDLE_HIT=()=>window.innerWidth<=900?28:18; // hit-test radius
 
-// Handle positions as functions of crop rect
+// Handle positions — clamped so full circles always render inside canvas
 function meHandlePositions(){
   const {x,y,w,h}=meCrop;
+  const r=HANDLE_R();
+  const clampX=v=>Math.max(r,Math.min(meCanvasW-r,v));
+  const clampY=v=>Math.max(r,Math.min(meCanvasH-r,v));
   return{
-    nw:{cx:x,cy:y},       n:{cx:x+w/2,cy:y},    ne:{cx:x+w,cy:y},
-    w:{cx:x,cy:y+h/2},                            e:{cx:x+w,cy:y+h/2},
-    sw:{cx:x,cy:y+h},     s:{cx:x+w/2,cy:y+h},   se:{cx:x+w,cy:y+h}
+    nw:{cx:clampX(x),      cy:clampY(y)},
+    n: {cx:clampX(x+w/2),  cy:clampY(y)},
+    ne:{cx:clampX(x+w),    cy:clampY(y)},
+    w: {cx:clampX(x),      cy:clampY(y+h/2)},
+    e: {cx:clampX(x+w),    cy:clampY(y+h/2)},
+    sw:{cx:clampX(x),      cy:clampY(y+h)},
+    s: {cx:clampX(x+w/2),  cy:clampY(y+h)},
+    se:{cx:clampX(x+w),    cy:clampY(y+h)}
   };
 }
 
@@ -4883,7 +4903,11 @@ function renderCDConsensus(c){
   const pcts=largestRemainder(c.votes,total);
   const maxV=Math.max(...c.votes);
   document.getElementById('cd-total-votes').textContent=total+' vote'+(total!==1?'s':'');
-  document.getElementById('cd-resp-count-badge').textContent=c.responses.length+' response'+(c.responses.length!==1?'s':'');
+  // Update response count badge (split structure for mobile hide of label)
+  const _respNum=document.getElementById('cd-resp-num');
+  const _respBadge=document.getElementById('cd-resp-count-badge');
+  const _respTxt=c.responses.length+' response'+(c.responses.length!==1?'s':'');
+  if(_respNum){_respNum.textContent=c.responses.length;} else if(_respBadge){_respBadge.textContent=_respTxt;}
   document.getElementById('cd-thread-count').textContent=c.responses.length;
   document.getElementById('cd-bars').innerHTML=c.ddx.map((dx,j)=>{
     const pct=pcts[j], isTop=c.votes[j]===maxV&&total>0;
