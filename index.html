@@ -134,6 +134,7 @@ html[data-theme="dark"] {
 #me-base-canvas{display:block;}
 #me-draw-canvas{position:absolute;inset:0;display:block;}
 .crop-overlay{position:absolute;inset:0;pointer-events:none;}
+.crop-box,.crop-handle{pointer-events:all;}
 .crop-shade{position:absolute;background:rgba(0,0,0,.55);}
 .crop-box{position:absolute;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.5);cursor:move;}
 .crop-handle{position:absolute;width:12px;height:12px;background:#fff;border-radius:2px;border:1px solid rgba(0,0,0,.3);}
@@ -1992,8 +1993,8 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
         <div id="phi-scan-status" style="text-align:center;margin-top:4px;"></div>
         <img id="upload-preview" class="upload-preview" alt="ECG preview">
         <video id="video-preview" class="video-preview" controls muted playsinline></video>
-        <div id="media-edit-bar" style="display:none;margin-top:8px;text-align:center;">
-          <button onclick="openMediaEditor()" style="background:var(--accentbg);color:var(--accent);border:1px solid var(--accentbg2);border-radius:var(--r);padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-sans);">✂️ Crop &amp; Redact PHI</button>
+        <div id="media-edit-bar" style="display:none;margin-top:8px;text-align:center;" onclick="event.stopPropagation()">
+          <button onclick="event.stopPropagation();openMediaEditor()" style="background:var(--accentbg);color:var(--accent);border:1px solid var(--accentbg2);border-radius:var(--r);padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-sans);">✂️ Crop &amp; Redact PHI</button>
         </div>
         <div class="phi-video-warning" id="phi-video-warning">
           ⚠️ <strong>Video PHI reminder:</strong> Cath lab and echo systems often embed patient name, DOB, and MRN in the video filename or burned-in overlay. Before uploading, confirm the filename contains no patient identifiers and that any on-screen patient info has been cropped or redacted.
@@ -2399,13 +2400,26 @@ function openMediaEditor(){
     // Draw current video frame to canvas
     const vid=document.getElementById('video-preview');
     meSourceVideo=vid;
-    const vw=vid.videoWidth||640, vh=vid.videoHeight||360;
-    meInit(vw,vh);
-    const ctx=baseCanvas.getContext('2d');
-    ctx.drawImage(vid,0,0,meCanvasW,meCanvasH);
-    meRedrawAll();
-    document.getElementById('me-hint').textContent='Crop only — use handles to trim edges containing patient info';
+    const doInitVideo=()=>{
+      const vw=vid.videoWidth||1280, vh=vid.videoHeight||720;
+      meInit(vw,vh);
+      // Draw frame: seek then draw on onseeked, with timeout fallback
+      const drawFrame=()=>{
+        const ctx=baseCanvas.getContext('2d');
+        try{ctx.drawImage(vid,0,0,meCanvasW,meCanvasH);}catch(e){}
+        meRedrawAll();
+      };
+      vid.onseeked=drawFrame;
+      vid.currentTime=Math.min(0.5,vid.duration>0?vid.duration*0.1:0.5);
+      // Fallback: draw whatever is there after 800ms
+      setTimeout(drawFrame,800);
+    };
+    if(vid.videoWidth>0){doInitVideo();}
+    else{vid.onloadedmetadata=doInitVideo; if(vid.readyState>=1)doInitVideo();}
+    document.getElementById('me-hint').textContent='Drag handles to crop out patient info from edges · This crops the video display frame';
+    document.getElementById('me-erase-btn').style.display='none'; // Erase not applicable to video
   } else {
+    document.getElementById('me-erase-btn').style.display='';
     const img=new Image();
     img.onload=()=>{
       meSourceImg=img;
@@ -2417,6 +2431,7 @@ function openMediaEditor(){
     img.src=uploadedImageDataUrl;
     document.getElementById('me-hint').textContent='Crop: drag handles to trim · Redact: drag to black out PHI';
   }
+  window._meCropWired=false;
   meSetTool('crop');
   meRedactHistory=[];
 }
@@ -2438,6 +2453,8 @@ function meInit(srcW,srcH){
   // Reset crop to full image
   meCrop={x:0,y:0,w:meCanvasW,h:meCanvasH};
   meRenderCropUI();
+  // Wire crop overlay once (flag prevents duplicate listeners)
+  if(!window._meCropWired){window._meCropWired=true;meWireCropOverlay();}
   meWireDrawCanvas();
 }
 
@@ -2457,36 +2474,54 @@ function meRenderCropUI(){
   const overlay=document.getElementById('me-crop-overlay');
   const {x,y,w,h}=meCrop;
   const W=meCanvasW,H=meCanvasH;
+  // Re-render shading + box purely visually — listeners are on the overlay itself
   overlay.innerHTML=`
     <div class="crop-shade" style="left:0;top:0;width:${x}px;height:${H}px;"></div>
     <div class="crop-shade" style="left:${x+w}px;top:0;width:${W-x-w}px;height:${H}px;"></div>
     <div class="crop-shade" style="left:${x}px;top:0;width:${w}px;height:${y}px;"></div>
     <div class="crop-shade" style="left:${x}px;top:${y+h}px;width:${w}px;height:${H-y-h}px;"></div>
-    <div class="crop-box" id="me-crop-box" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px;">
-      <div class="crop-handle nw" data-h="nw"></div>
-      <div class="crop-handle ne" data-h="ne"></div>
-      <div class="crop-handle sw" data-h="sw"></div>
-      <div class="crop-handle se" data-h="se"></div>
-      <div class="crop-handle n" data-h="n"></div>
-      <div class="crop-handle s" data-h="s"></div>
-      <div class="crop-handle e" data-h="e"></div>
-      <div class="crop-handle w" data-h="w"></div>
+    <div class="crop-box" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px;pointer-events:none;">
+      <div class="crop-handle nw" data-h="nw" style="pointer-events:all;"></div>
+      <div class="crop-handle ne" data-h="ne" style="pointer-events:all;"></div>
+      <div class="crop-handle sw" data-h="sw" style="pointer-events:all;"></div>
+      <div class="crop-handle se" data-h="se" style="pointer-events:all;"></div>
+      <div class="crop-handle n" data-h="n" style="pointer-events:all;"></div>
+      <div class="crop-handle s" data-h="s" style="pointer-events:all;"></div>
+      <div class="crop-handle e" data-h="e" style="pointer-events:all;"></div>
+      <div class="crop-handle w" data-h="w" style="pointer-events:all;"></div>
     </div>`;
-
-  // Wire crop drag
-  const box=document.getElementById('me-crop-box');
-  overlay.querySelectorAll('.crop-handle').forEach(h=>{
-    h.addEventListener('mousedown',e=>{e.stopPropagation();meCropDrag={handle:h.dataset.h,startX:e.clientX,startY:e.clientY,origCrop:{...meCrop}};e.preventDefault();});
-  });
-  box.addEventListener('mousedown',e=>{
-    if(e.target.classList.contains('crop-handle'))return;
-    meCropDrag={handle:'move',startX:e.clientX,startY:e.clientY,origCrop:{...meCrop}};e.preventDefault();
-  });
 }
 
-document.addEventListener('mousemove',e=>{
+// Wire crop interaction ONCE on the overlay (persists across re-renders)
+function meWireCropOverlay(){
+  const overlay=document.getElementById('me-crop-overlay');
+  overlay.addEventListener('mousedown',e=>{
+    const h=e.target.dataset.h;
+    if(h){
+      // Handle drag
+      meCropDrag={handle:h,startX:e.clientX,startY:e.clientY,origCrop:{...meCrop}};
+      e.preventDefault();e.stopPropagation();
+    }
+  });
+  // Touch support for handles
+  overlay.addEventListener('touchstart',e=>{
+    const h=e.target.dataset.h;
+    if(h){
+      meCropDrag={handle:h,startX:e.touches[0].clientX,startY:e.touches[0].clientY,origCrop:{...meCrop}};
+      e.preventDefault();
+    }
+  },{passive:false});
+  overlay.addEventListener('touchmove',e=>{
+    if(!meCropDrag)return;
+    meCropMove(e.touches[0].clientX,e.touches[0].clientY);
+    e.preventDefault();
+  },{passive:false});
+  overlay.addEventListener('touchend',()=>{meCropDrag=null;});
+}
+
+function meCropMove(clientX,clientY){
   if(!meCropDrag)return;
-  const dx=e.clientX-meCropDrag.startX, dy=e.clientY-meCropDrag.startY;
+  const dx=clientX-meCropDrag.startX, dy=clientY-meCropDrag.startY;
   const o=meCropDrag.origCrop;
   const MIN=20,W=meCanvasW,H=meCanvasH;
   let {x,y,w,h}={...o};
@@ -2500,7 +2535,9 @@ document.addEventListener('mousemove',e=>{
   }
   meCrop={x:Math.round(x),y:Math.round(y),w:Math.round(w),h:Math.round(h)};
   meRenderCropUI();
-});
+}
+
+document.addEventListener('mousemove',e=>{if(meCropDrag)meCropMove(e.clientX,e.clientY);});
 document.addEventListener('mouseup',()=>{meCropDrag=null;});
 
 // ── ERASE (REDACT) ─────────────────────────────────────────────────────
