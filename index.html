@@ -218,6 +218,7 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text);overflo
 .ftab:hover{color:var(--text);}
 .ftab.active{background:var(--accentbg);color:var(--accent);border-color:rgba(59,130,246,.3);}
 .post-btn{background:var(--accent);color:white;border:none;padding:7px 16px;border-radius:var(--r);font-size:12px;font-weight:500;cursor:pointer;font-family:var(--font-sans);transition:background .15s;}
+.hamburger-btn-mobile{display:none;}/* shown only via @media mobile */
 .post-btn:hover{background:var(--accent2);}
 .feed{flex:1;overflow-y:auto;padding:16px 24px;display:flex;flex-direction:column;gap:10px;}
 .feed::-webkit-scrollbar{width:4px;}
@@ -496,12 +497,17 @@ input::placeholder{color:var(--text3);}
   .right-panel{display:none;}
   .main{flex:1;min-height:0;display:flex;flex-direction:column;}
   /* Topbar — compact, no wrap */
-  .topbar{padding:11px 16px;gap:8px;flex-wrap:nowrap;background:var(--bg2);position:sticky;top:0;z-index:50;border-bottom:1px solid var(--border);}
+  .topbar{padding:10px 14px;gap:8px;flex-wrap:nowrap;background:var(--bg2);position:sticky;top:0;z-index:50;border-bottom:1px solid var(--border);overflow:hidden;}
   .topbar-title{font-size:15px;font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .filter-tabs{display:none;}/* moved to sticky sub-bar below */
-  .post-btn{display:none;}/* posting via bottom nav */
-  /* Sub-filter bar under topbar */
-  .mobile-filter-bar{display:flex;gap:4px;overflow-x:auto;padding:8px 16px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+  /* Hide desktop elements on mobile */
+  .filter-tabs{display:none!important;}
+  .post-btn{display:none!important;}
+  .hamburger-btn-mobile{display:flex!important;}
+  /* Compact live pill on mobile */
+  .live-pill{flex-shrink:0;font-size:10px;padding:3px 8px;gap:4px;white-space:nowrap;}
+  @media(max-width:480px){.live-pill-text{display:none;}.live-pill{padding:5px 6px;border-radius:50%;}}
+  /* Sub-filter bar under topbar — the only filter UI on mobile */
+  .mobile-filter-bar{display:flex;gap:4px;overflow-x:auto;padding:8px 14px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
   .mobile-filter-bar::-webkit-scrollbar{display:none;}
   .mobile-filter-bar .ftab{white-space:nowrap;flex-shrink:0;font-size:12px;padding:5px 13px;}
   /* Feed — extra bottom padding so last card clears the fixed nav + safe area */
@@ -1612,9 +1618,9 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
 
   <div class="main">
     <div class="topbar">
-      <button class="post-btn" style="background:var(--bg3);color:var(--text2);border:1px solid var(--border);padding:6px 10px;display:none;" id="hamburger-btn" onclick="openSidebarDrawer()">☰</button>
+      <button class="post-btn hamburger-btn-mobile" style="background:var(--bg3);color:var(--text2);border:1px solid var(--border);padding:6px 10px;" id="hamburger-btn" onclick="openSidebarDrawer()">☰</button>
       <span class="topbar-title" id="topbar-title">Live feed</span>
-      <div class="live-pill"><div class="pulse-dot"></div><span id="active-count">Physicians active</span></div>
+      <div class="live-pill"><div class="pulse-dot"></div><span id="active-count" class="live-pill-text">Physicians active</span></div>
       <div class="filter-tabs">
         <div class="ftab active" onclick="setFilter('all',this)">All</div>
         <div class="ftab" onclick="setFilter('open',this)">Open</div>
