@@ -115,34 +115,51 @@ html[data-theme="dark"] {
 .lb-avatar-wrap img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
 
 /* ══ MEDIA EDITOR MODAL ══════════════════════════════════════════════ */
+/* ── MEDIA EDITOR ──────────────────────────────────────────────────────── */
 .media-editor-overlay{position:fixed;inset:0;background:#000;z-index:10000;display:flex;flex-direction:column;touch-action:none;overscroll-behavior:none;}
-.media-editor-topbar{display:flex;align-items:center;gap:12px;padding:10px 16px;background:#111;border-bottom:1px solid rgba(255,255,255,.1);flex-shrink:0;}
-.media-editor-title{font-size:13px;font-weight:600;color:#fff;flex:1;}
-.me-tool-btn{display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:transparent;color:#ccc;font-family:var(--font-sans);font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;white-space:nowrap;}
-@media(max-width:900px){
-  .me-tool-btn{padding:10px 14px;font-size:13px;min-height:44px;}
-  .media-editor-topbar{padding:8px 12px;gap:8px;flex-wrap:wrap;}
-  .me-separator{display:none;}
-  .me-brush-size input[type=range]{width:100px;}
+.media-editor-stage{flex:1;overflow:hidden;display:flex;align-items:center;justify-content:center;position:relative;background:#0a0a0a;min-height:0;}
+.media-editor-hint{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);font-size:11px;color:rgba(255,255,255,.35);pointer-events:none;white-space:nowrap;}
+
+/* Toolbar — single row, always at bottom */
+.media-editor-topbar{
+  display:flex;align-items:center;gap:8px;padding:10px 14px;
+  background:#111;border-top:1px solid rgba(255,255,255,.1);
+  flex-shrink:0;flex-wrap:nowrap;
+  padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));
+}
+.me-tool-group{display:flex;gap:6px;align-items:center;}
+.me-action-group{display:flex;gap:6px;align-items:center;margin-left:auto;}
+.me-brush-size{display:flex;align-items:center;gap:6px;flex:1;justify-content:center;}
+
+/* Buttons */
+.me-tool-btn{
+  display:flex;align-items:center;gap:5px;
+  padding:8px 14px;border-radius:8px;
+  border:1px solid rgba(255,255,255,.15);
+  background:transparent;color:#bbb;
+  font-family:var(--font-sans);font-size:12px;font-weight:500;
+  cursor:pointer;transition:all .15s;white-space:nowrap;min-height:38px;
 }
 .me-tool-btn:hover{background:rgba(255,255,255,.08);color:#fff;}
 .me-tool-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
-.me-tool-btn.danger{border-color:rgba(239,68,68,.4);color:#f87171;}
-.me-tool-btn.danger:hover{background:rgba(239,68,68,.15);}
-.me-tool-btn.save{background:#22c55e;border-color:#22c55e;color:#fff;font-weight:600;}
+.me-tool-btn.danger{border-color:rgba(239,68,68,.35);color:#f87171;background:rgba(239,68,68,.08);}
+.me-tool-btn.danger:hover{background:rgba(239,68,68,.18);}
+.me-tool-btn.save{background:#22c55e;border-color:#22c55e;color:#fff;font-weight:600;padding:8px 18px;}
 .me-tool-btn.save:hover{opacity:.88;}
-.me-separator{width:1px;height:24px;background:rgba(255,255,255,.12);flex-shrink:0;}
-.me-brush-size{display:flex;align-items:center;gap:8px;}
-.me-brush-size label{font-size:11px;color:#888;white-space:nowrap;}
-.me-brush-size input{width:80px;accent-color:var(--accent);}
-.media-editor-stage{flex:1;overflow:hidden;display:flex;align-items:center;justify-content:center;position:relative;background:#0a0a0a;}
+.me-undo-btn{padding:8px 10px;font-size:15px;}
+
+/* Mobile — bigger tap targets, optimized layout */
 @media(max-width:900px){
-  .media-editor-overlay{flex-direction:column;}
-  .media-editor-topbar{order:2;flex-shrink:0;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:6px 10px;}
-  .media-editor-topbar::-webkit-scrollbar{display:none;}
-  .media-editor-stage{order:1;flex:1;}
-  .media-editor-hint{font-size:10px;bottom:8px;}
-  .me-brush-controls{gap:6px;}
+  .media-editor-topbar{padding:10px 12px;gap:6px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));}
+  .me-tool-btn{padding:10px 14px;font-size:13px;min-height:44px;border-radius:10px;}
+  .me-tool-btn.save{padding:10px 20px;}
+  .me-undo-btn{padding:10px 12px;}
+  .media-editor-hint{font-size:10px;bottom:6px;}
+}
+/* Very small screens — compress further */
+@media(max-width:400px){
+  .me-tool-btn{padding:9px 10px;font-size:12px;}
+  .me-tool-btn.save{padding:9px 14px;}
 }
 .media-editor-canvas-wrap{position:relative;display:inline-flex;align-items:flex-start;user-select:none;}
 #me-base-canvas{display:block;}
@@ -2040,7 +2057,7 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
           <input type="file" accept=".jpg,.jpeg,.png,.pdf,.mp4,.mov,.webm,.avi,.m4v" id="file-input" onchange="handleUpload(this)" style="display:none;">
         </div>
         <div id="media-edit-bar" style="display:none;margin-top:8px;" onclick="event.stopPropagation()">
-          <button onclick="event.stopPropagation();openMediaEditor()" style="width:100%;background:var(--accentbg);color:var(--accent);border:1px solid var(--accentbg2);border-radius:var(--r);padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-sans);display:flex;align-items:center;justify-content:center;gap:6px;">✂️ Crop &amp; Redact PHI <span style="font-size:10px;opacity:.7;">(remove patient info)</span></button>
+          <button onclick="event.stopPropagation();openMediaEditor()" style="width:100%;background:var(--accentbg);color:var(--accent);border:1px solid var(--accentbg2);border-radius:var(--r);padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-sans);display:flex;align-items:center;justify-content:center;gap:6px;">✂️ Crop &amp; Erase PHI</button>
         </div>
         <div id="phi-scan-status" style="text-align:center;margin-top:4px;"></div>
         <img id="upload-preview" class="upload-preview" alt="ECG preview">
@@ -2488,7 +2505,7 @@ function openMediaEditor(){
   const drawCanvas=document.getElementById('me-draw-canvas');
   overlay.style.display='flex';
   meIsVideo=uploadedIsVideo;
-  document.getElementById('me-title').textContent=meIsVideo?'Crop Video':'Crop & Redact Image';
+  document.getElementById('me-title').textContent=meIsVideo?'Crop Video':'Crop & Erase';
 
   if(meIsVideo){
     // Show a live video directly — no canvas needed, no CORS issues
@@ -2557,7 +2574,7 @@ function openMediaEditor(){
       meRedrawAll();
     };
     img.src=uploadedImageDataUrl;
-    document.getElementById('me-hint').textContent='Crop: drag handles to trim · Redact: drag to black out PHI';
+    document.getElementById('me-hint').textContent='Drag handles to crop · Switch to Erase to black out text';
   }
   // Clear stale source references
   meSourceImg=null;
@@ -2573,8 +2590,10 @@ function openMediaEditor(){
 
 function meInit(srcW,srcH){
   const stage=document.getElementById('me-stage');
-  const maxW=stage.clientWidth-40, maxH=stage.clientHeight-40;
-  meScale=Math.min(1,maxW/srcW,maxH/srcH);
+  // Use almost all available space (12px breathing room each side)
+  const maxW=stage.clientWidth-24, maxH=stage.clientHeight-24;
+  // Allow scale > 1 on mobile so small images fill the screen
+  meScale=Math.min(maxW/srcW,maxH/srcH);
   meCanvasW=Math.round(srcW*meScale);
   meCanvasH=Math.round(srcH*meScale);
 
@@ -2605,9 +2624,9 @@ function meSetTool(tool){
   if(cc)cc.style.display=tool==='crop'?'block':'none';
   const oldOvl=document.getElementById('me-crop-overlay');
   if(oldOvl)oldOvl.style.display='none';
-  document.getElementById('me-draw-canvas').style.cursor=tool==='erase'?'crosshair':'default';
+  document.getElementById('me-draw-canvas').style.cursor=tool==='erase'?'cell':'default';
   const hint=document.getElementById('me-hint');
-  hint.textContent=tool==='erase'?'Drag to black out sensitive info (names, MRN, DOB, etc.)':'Drag handles or corners to crop out patient info from edges';
+  hint.textContent=tool==='erase'?'Draw over any text to erase it — names, MRN, DOB, device ID':'Drag handles or corners to crop out patient info from edges';
 }
 
 // ── CROP UI ────────────────────────────────────────────────────────────
@@ -2864,7 +2883,7 @@ function meUndo(){
   if(meRedactHistory.length===0){showToast('Nothing to undo',true);return;}
   meRedactHistory.pop();
   meRedrawAll();
-  showToast('Redaction removed');
+  showToast('Erased');
 }
 
 function meReset(){
@@ -2942,11 +2961,11 @@ async function saveMediaEdit(){
   const cropApplied=(meCrop.x>0.5||meCrop.y>0.5||meCrop.w<meCanvasW-0.5||meCrop.h<meCanvasH-0.5);
   const redactApplied=meRedactHistory.length>0;
   let msg='Media saved';
-  if(cropApplied&&redactApplied) msg='✓ Cropped + '+meRedactHistory.length+' redaction(s) applied';
+  if(cropApplied&&redactApplied) msg='✓ Cropped + '+meRedactHistory.length+' erase(s) applied';
   else if(cropApplied) msg='✓ Crop applied';
-  else if(redactApplied) msg='✓ '+meRedactHistory.length+' redaction(s) applied';
+  else if(redactApplied) msg='✓ '+meRedactHistory.length+' erase(s) applied';
   showToast(msg);
-  setScanBadge('✓ Edited — crop/redact applied','override');
+  setScanBadge('✓ Crop & erase applied','override');
 }
 
 
@@ -6341,28 +6360,33 @@ function toggleTheme(){
 
 <!-- ══ MEDIA EDITOR MODAL ══════════════════════════════════════════════ -->
 <div id="media-editor-overlay" class="media-editor-overlay" style="display:none;">
-  <div class="media-editor-topbar">
-    <span class="media-editor-title" id="me-title">Edit Media</span>
-    <button class="me-tool-btn active" id="me-crop-btn" onclick="meSetTool('crop')">✂️ Crop</button>
-    <button class="me-tool-btn" id="me-erase-btn" onclick="meSetTool('erase')">⬛ Redact</button>
-    <div class="me-separator"></div>
-    <div class="me-brush-size" id="me-brush-controls" style="display:none;">
-      <label>Size</label>
-      <input type="range" id="me-brush-size" min="10" max="120" value="40" oninput="meBrushSize=parseInt(this.value)">
-    </div>
-    <button class="me-tool-btn me-undo-btn" onclick="meUndo()" title="Undo last redaction">↩ Undo</button>
-    <button class="me-tool-btn danger" onclick="meReset()">Reset</button>
-    <div class="me-separator"></div>
-    <button class="me-tool-btn" onclick="closeMediaEditor()">Cancel</button>
-    <button class="me-tool-btn save" onclick="saveMediaEdit()">✓ Done</button>
-  </div>
+  <!-- Stage fills screen -->
   <div class="media-editor-stage" id="me-stage">
     <div class="media-editor-canvas-wrap" id="me-canvas-wrap">
       <canvas id="me-base-canvas"></canvas>
       <canvas id="me-draw-canvas"></canvas>
       <div class="crop-overlay" id="me-crop-overlay"></div>
     </div>
-    <div class="media-editor-hint" id="me-hint">Drag corners or edges to crop · Switch to Redact to black out sensitive info</div>
+    <div class="media-editor-hint" id="me-hint">Drag handles to crop · Switch to Erase to black out text</div>
+  </div>
+  <!-- Clean single-row toolbar at bottom -->
+  <div class="media-editor-topbar">
+    <!-- Left: tool toggle -->
+    <div class="me-tool-group">
+      <button class="me-tool-btn active" id="me-crop-btn" onclick="meSetTool('crop')">✂️ Crop</button>
+      <button class="me-tool-btn" id="me-erase-btn" onclick="meSetTool('erase')">✏️ Erase</button>
+    </div>
+    <!-- Center: brush size (only when erasing) -->
+    <div class="me-brush-size" id="me-brush-controls" style="display:none;">
+      <input type="range" id="me-brush-size" min="10" max="120" value="40" oninput="meBrushSize=parseInt(this.value)" style="width:70px;accent-color:#3b82f6;">
+    </div>
+    <!-- Right: actions -->
+    <div class="me-action-group">
+      <button class="me-tool-btn me-undo-btn" onclick="meUndo()">↩</button>
+      <button class="me-tool-btn danger" onclick="meReset()">Reset</button>
+      <button class="me-tool-btn" onclick="closeMediaEditor()">Cancel</button>
+      <button class="me-tool-btn save" onclick="saveMediaEdit()">✓ Done</button>
+    </div>
   </div>
 </div>
 </body>
