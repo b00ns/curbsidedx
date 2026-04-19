@@ -2515,7 +2515,7 @@ function openMediaEditor(){
   const drawCanvas=document.getElementById('me-draw-canvas');
   overlay.style.display='flex';
   meIsVideo=uploadedIsVideo;
-  document.getElementById('me-title').textContent=meIsVideo?'Crop Video':'Crop & Erase';
+  // Title element removed from toolbar redesign — update hint instead
   // Reset ALL state before starting — must happen before async image/video loads
   _meResetState();
 
@@ -2578,20 +2578,23 @@ function openMediaEditor(){
   } else {
     document.getElementById('me-erase-btn').style.display='';
     document.getElementById('me-hint').textContent='Drag handles to crop · Switch to Erase to black out text';
-    // Load image first, then init canvas once BOTH image and layout are ready
-    const img=new Image();
-    img.onload=()=>{
-      meSourceImg=img;
-      // Wait for layout — poll until stage has real dimensions (handles iOS delay)
-      _meWaitForLayout(()=>{
-        meInit(img.naturalWidth,img.naturalHeight);
-        const ctx=baseCanvas.getContext('2d');
-        ctx.drawImage(img,0,0,meCanvasW,meCanvasH);
-        meRedrawAll();
+    // Capture dataUrl now before any async gap can clear it
+    const dataUrlSnapshot = uploadedImageDataUrl;
+    const img = new Image();
+    img.onload = () => {
+      meSourceImg = img;
+      // Poll until stage has real layout dimensions — display:flex takes 1-3 frames on mobile
+      _meWaitForLayout(() => {
+        meInit(img.naturalWidth, img.naturalHeight);
+        if(meCanvasW > 0 && meCanvasH > 0){
+          const ctx = document.getElementById('me-base-canvas').getContext('2d');
+          ctx.drawImage(img, 0, 0, meCanvasW, meCanvasH);
+          meRedrawAll();
+        }
       });
     };
-    img.onerror=()=>showToast('Could not load image for editing',true);
-    img.src=uploadedImageDataUrl;
+    img.onerror = () => showToast('Could not load image', true);
+    img.src = dataUrlSnapshot;
   }
 }
 
