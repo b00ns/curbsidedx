@@ -2578,20 +2578,34 @@ function openMediaEditor(){
   } else {
     document.getElementById('me-erase-btn').style.display='';
     document.getElementById('me-hint').textContent='Drag handles to crop · Switch to Erase to black out text';
-    // Use double-RAF so the overlay is fully laid out before we measure stage dimensions
-    // (overlay.style.display='flex' doesn't immediately cause layout — need a frame)
-    requestAnimationFrame(()=>requestAnimationFrame(()=>{
-      const img=new Image();
-      img.onload=()=>{
-        meSourceImg=img;
+    // Load image first, then init canvas once BOTH image and layout are ready
+    const img=new Image();
+    img.onload=()=>{
+      meSourceImg=img;
+      // Wait for layout — poll until stage has real dimensions (handles iOS delay)
+      _meWaitForLayout(()=>{
         meInit(img.naturalWidth,img.naturalHeight);
         const ctx=baseCanvas.getContext('2d');
         ctx.drawImage(img,0,0,meCanvasW,meCanvasH);
         meRedrawAll();
-      };
-      img.onerror=()=>showToast('Could not load image for editing',true);
-      img.src=uploadedImageDataUrl;
-    }));
+      });
+    };
+    img.onerror=()=>showToast('Could not load image for editing',true);
+    img.src=uploadedImageDataUrl;
+  }
+}
+
+// Poll until the stage element has real layout dimensions, then call fn
+function _meWaitForLayout(fn,attempts=0){
+  const stage=document.getElementById('me-stage');
+  if(stage && stage.clientWidth>10 && stage.clientHeight>10){
+    fn();
+  } else if(attempts<30){
+    // Retry up to 30 times at ~16ms intervals = 500ms max wait
+    setTimeout(()=>_meWaitForLayout(fn,attempts+1),16);
+  } else {
+    // Fallback: use window dimensions
+    fn();
   }
 }
 
@@ -2610,10 +2624,12 @@ function _meResetState(){
 function meInit(srcW,srcH){
   const stage=document.getElementById('me-stage');
   let maxW=stage.clientWidth-24, maxH=stage.clientHeight-24;
-  // Guard: if stage hasn't laid out yet, fall back to window dimensions
-  if(maxW<=0) maxW=window.innerWidth-24;
-  if(maxH<=0) maxH=window.innerHeight-160; // approx toolbar height
+  if(maxW<=10) maxW=window.innerWidth-24;
+  if(maxH<=10) maxH=window.innerHeight-160;
+  if(srcW<=0||srcH<=0){console.error('meInit: invalid source dimensions',srcW,srcH);return;}
   meScale=Math.min(maxW/srcW,maxH/srcH);
+  // Sanity check scale
+  if(!isFinite(meScale)||meScale<=0)meScale=1;
   meCanvasW=Math.round(srcW*meScale);
   meCanvasH=Math.round(srcH*meScale);
 
