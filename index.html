@@ -2578,17 +2578,20 @@ function openMediaEditor(){
   } else {
     document.getElementById('me-erase-btn').style.display='';
     document.getElementById('me-hint').textContent='Drag handles to crop · Switch to Erase to black out text';
-    // Load image — drawImage after load
-    const img=new Image();
-    img.onload=()=>{
-      meSourceImg=img;
-      meInit(img.naturalWidth,img.naturalHeight);
-      const ctx=baseCanvas.getContext('2d');
-      ctx.drawImage(img,0,0,meCanvasW,meCanvasH);
-      meRedrawAll();
-    };
-    img.onerror=()=>showToast('Could not load image for editing',true);
-    img.src=uploadedImageDataUrl;
+    // Use double-RAF so the overlay is fully laid out before we measure stage dimensions
+    // (overlay.style.display='flex' doesn't immediately cause layout — need a frame)
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      const img=new Image();
+      img.onload=()=>{
+        meSourceImg=img;
+        meInit(img.naturalWidth,img.naturalHeight);
+        const ctx=baseCanvas.getContext('2d');
+        ctx.drawImage(img,0,0,meCanvasW,meCanvasH);
+        meRedrawAll();
+      };
+      img.onerror=()=>showToast('Could not load image for editing',true);
+      img.src=uploadedImageDataUrl;
+    }));
   }
 }
 
@@ -2606,9 +2609,10 @@ function _meResetState(){
 
 function meInit(srcW,srcH){
   const stage=document.getElementById('me-stage');
-  // Use almost all available space (12px breathing room each side)
-  const maxW=stage.clientWidth-24, maxH=stage.clientHeight-24;
-  // Allow scale > 1 on mobile so small images fill the screen
+  let maxW=stage.clientWidth-24, maxH=stage.clientHeight-24;
+  // Guard: if stage hasn't laid out yet, fall back to window dimensions
+  if(maxW<=0) maxW=window.innerWidth-24;
+  if(maxH<=0) maxH=window.innerHeight-160; // approx toolbar height
   meScale=Math.min(maxW/srcW,maxH/srcH);
   meCanvasW=Math.round(srcW*meScale);
   meCanvasH=Math.round(srcH*meScale);
