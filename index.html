@@ -245,7 +245,7 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text);overflo
 .ftab:hover{color:var(--text);}
 .ftab.active{background:var(--accentbg);color:var(--accent);border-color:rgba(59,130,246,.3);}
 .post-btn{background:var(--accent);color:white;border:none;padding:7px 16px;border-radius:var(--r);font-size:12px;font-weight:500;cursor:pointer;font-family:var(--font-sans);transition:background .15s;}
-.hamburger-btn-mobile{display:none;}/* shown only via @media mobile */
+
 .post-btn:hover{background:var(--accent2);}
 .feed{flex:1;overflow-y:auto;padding:16px 24px;display:flex;flex-direction:column;gap:10px;}
 .feed::-webkit-scrollbar{width:4px;}
@@ -529,7 +529,7 @@ input::placeholder{color:var(--text3);}
   /* Hide desktop elements on mobile */
   .filter-tabs{display:none!important;}
   .post-btn{display:none!important;}
-  .hamburger-btn-mobile{display:flex!important;}
+
   /* Compact live pill on mobile */
   .live-pill{flex-shrink:0;font-size:10px;padding:3px 8px;gap:4px;white-space:nowrap;}
   @media(max-width:480px){.live-pill-text{display:none;}.live-pill{padding:5px 6px;border-radius:50%;}}
@@ -1645,7 +1645,6 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
 
   <div class="main">
     <div class="topbar">
-      <button class="post-btn hamburger-btn-mobile" style="background:var(--bg3);color:var(--text2);border:1px solid var(--border);padding:6px 10px;" id="hamburger-btn" onclick="openSidebarDrawer()">☰</button>
       <span class="topbar-title" id="topbar-title">Live feed</span>
       <div class="live-pill"><div class="pulse-dot"></div><span id="active-count" class="live-pill-text">Physicians active</span></div>
       <div class="filter-tabs">
@@ -4351,7 +4350,7 @@ function closeRPDrawer(){
 }
 function openSidebarDrawer(){document.getElementById('sidebar-drawer').classList.add('open');document.getElementById('sidebar-overlay').classList.add('open');}
 function closeSidebarDrawer(){document.getElementById('sidebar-drawer').classList.remove('open');document.getElementById('sidebar-overlay').classList.remove('open');}
-function checkMobileLayout(){const h=document.getElementById('hamburger-btn');if(h)h.style.display=isMobile()?'block':'none';}
+function checkMobileLayout(){}
 window.addEventListener('resize',checkMobileLayout);checkMobileLayout();
 function showModal(id){document.getElementById(id).classList.remove('hidden');}
 function hideModal(id){document.getElementById(id).classList.add('hidden');}
