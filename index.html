@@ -156,10 +156,20 @@ html[data-theme="dark"] {
   .me-undo-btn{padding:10px 12px;}
   .media-editor-hint{font-size:10px;bottom:6px;}
 }
-/* Very small screens — compress further */
-@media(max-width:400px){
-  .me-tool-btn{padding:9px 10px;font-size:12px;}
-  .me-tool-btn.save{padding:9px 14px;}
+/* Mobile: icon-only buttons to fit in one row */
+@media(max-width:600px){
+  .me-btn-label{display:none;}
+  .me-tool-btn{padding:11px 13px;font-size:18px;min-width:44px;justify-content:center;}
+  .me-tool-btn.save{background:#22c55e;padding:11px 18px;font-size:16px;}
+  .me-undo-btn{font-size:18px;}
+  .me-action-group{gap:6px;}
+  .me-tool-group{gap:6px;}
+  .me-brush-size input{width:60px;}
+}
+/* Very small screens */
+@media(max-width:380px){
+  .me-tool-btn{padding:10px 11px;min-width:40px;}
+  .me-tool-btn.save{padding:10px 14px;}
 }
 .media-editor-canvas-wrap{position:relative;display:inline-flex;align-items:flex-start;user-select:none;}
 #me-base-canvas{display:block;}
@@ -2506,6 +2516,8 @@ function openMediaEditor(){
   overlay.style.display='flex';
   meIsVideo=uploadedIsVideo;
   document.getElementById('me-title').textContent=meIsVideo?'Crop Video':'Crop & Erase';
+  // Reset ALL state before starting — must happen before async image/video loads
+  _meResetState();
 
   if(meIsVideo){
     // Show a live video directly — no canvas needed, no CORS issues
@@ -2565,6 +2577,8 @@ function openMediaEditor(){
     document.getElementById('me-erase-btn').style.display='none';
   } else {
     document.getElementById('me-erase-btn').style.display='';
+    document.getElementById('me-hint').textContent='Drag handles to crop · Switch to Erase to black out text';
+    // Load image — drawImage after load
     const img=new Image();
     img.onload=()=>{
       meSourceImg=img;
@@ -2573,14 +2587,16 @@ function openMediaEditor(){
       ctx.drawImage(img,0,0,meCanvasW,meCanvasH);
       meRedrawAll();
     };
+    img.onerror=()=>showToast('Could not load image for editing',true);
     img.src=uploadedImageDataUrl;
-    document.getElementById('me-hint').textContent='Drag handles to crop · Switch to Erase to black out text';
   }
-  // Clear stale source references
+}
+
+// Called at start of openMediaEditor — resets state before image/video load
+function _meResetState(){
   meSourceImg=null;
   meSourceVideo=null;
   window._meCropWired=false;
-  // Remove old crop canvas so it gets recreated at correct size
   const oldCC=document.getElementById('me-crop-canvas');
   if(oldCC)oldCC.remove();
   _cropCanvas=null;_cropCtx=null;
@@ -6371,21 +6387,28 @@ function toggleTheme(){
   </div>
   <!-- Clean single-row toolbar at bottom -->
   <div class="media-editor-topbar">
-    <!-- Left: tool toggle -->
     <div class="me-tool-group">
-      <button class="me-tool-btn active" id="me-crop-btn" onclick="meSetTool('crop')">✂️ Crop</button>
-      <button class="me-tool-btn" id="me-erase-btn" onclick="meSetTool('erase')">✏️ Erase</button>
+      <button class="me-tool-btn active" id="me-crop-btn" onclick="meSetTool('crop')">
+        <span class="me-btn-icon">✂️</span><span class="me-btn-label">Crop</span>
+      </button>
+      <button class="me-tool-btn" id="me-erase-btn" onclick="meSetTool('erase')">
+        <span class="me-btn-icon">✏️</span><span class="me-btn-label">Erase</span>
+      </button>
     </div>
-    <!-- Center: brush size (only when erasing) -->
     <div class="me-brush-size" id="me-brush-controls" style="display:none;">
-      <input type="range" id="me-brush-size" min="10" max="120" value="40" oninput="meBrushSize=parseInt(this.value)" style="width:70px;accent-color:#3b82f6;">
+      <input type="range" id="me-brush-size" min="10" max="120" value="40" oninput="meBrushSize=parseInt(this.value)">
     </div>
-    <!-- Right: actions -->
     <div class="me-action-group">
-      <button class="me-tool-btn me-undo-btn" onclick="meUndo()">↩</button>
-      <button class="me-tool-btn danger" onclick="meReset()">Reset</button>
-      <button class="me-tool-btn" onclick="closeMediaEditor()">Cancel</button>
-      <button class="me-tool-btn save" onclick="saveMediaEdit()">✓ Done</button>
+      <button class="me-tool-btn me-undo-btn" onclick="meUndo()" title="Undo">↩</button>
+      <button class="me-tool-btn danger" onclick="meReset()" title="Reset">
+        <span class="me-btn-icon">🔄</span><span class="me-btn-label">Reset</span>
+      </button>
+      <button class="me-tool-btn" onclick="closeMediaEditor()" title="Cancel">
+        <span class="me-btn-icon">✕</span><span class="me-btn-label">Cancel</span>
+      </button>
+      <button class="me-tool-btn save" onclick="saveMediaEdit()">
+        <span class="me-btn-icon">✓</span><span class="me-btn-label">Done</span>
+      </button>
     </div>
   </div>
 </div>
