@@ -3193,9 +3193,7 @@ EXAMPLES of good differentials:
 - HF + AF: ["Rhythm control (ablation/cardioversion)", "Rate control first, reassess", "Optimize GDMT before deciding", "Anticoagulate and defer rhythm decision"]`,
         messages:[{role:'user',content:`Subspecialty: ${spec||'General Cardiology'}
 
-Clinical question: ${q}${uploadedImageDataUrl?'
-
-[Note: An ECG or cardiac imaging has been uploaded with this case — factor in that visual information may be central to the diagnosis]':''}`}]
+Clinical question: ${q}${uploadedImageDataUrl?'\n\n[Note: An ECG or cardiac imaging has been uploaded with this case — factor in that visual information may be central to the diagnosis]':''}`}]
       })
     });
     const data=await response.json();
