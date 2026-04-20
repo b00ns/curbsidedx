@@ -308,7 +308,7 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text);overflo
 /* Video preview in upload zone */
 .video-preview{
   width:100%;border-radius:var(--r);margin-top:8px;display:none;
-  max-height:160px;background:#000;
+  max-height:240px;background:#000;object-fit:contain;
 }
 /* Video player in case cards */
 .case-video-wrap{
@@ -2501,10 +2501,10 @@ function videoCropWrapStyle(crop){
 function openMediaEditor(){
   // Guard: ensure we have something to edit
   if(!uploadedFile&&!uploadedIsVideo){showToast('Upload a file first',true);return;}
-  // For video: must have a video element with a loaded src
+  // For video: just need the blob URL — readyState check removed (blob is always valid)
   if(uploadedIsVideo){
-    const vid=document.getElementById('video-preview');
-    if(!vid||!vid.src||vid.readyState===0){showToast('Video still loading — try again in a moment',true);return;}
+    const blobCheck=window._uploadedVideoBlobUrl||document.getElementById('video-preview')?.src;
+    if(!blobCheck){showToast('Select a video file first',true);return;}
   }
   // For image: must have image data
   if(!uploadedIsVideo&&!uploadedImageDataUrl){showToast('Image not ready — try again',true);return;}
@@ -2538,20 +2538,19 @@ function openMediaEditor(){
     const blobSrc=window._uploadedVideoBlobUrl||document.getElementById('video-preview')?.src||'';
     edVid.src=blobSrc;
     edVid.style.display='block';
+    edVid.load(); // force load on mobile where autoload may be suppressed
 
-    // Initialize crop state based on video dimensions once metadata loads
-    const onMeta=()=>{
+    const initCropOverlay=(vw,vh)=>{
       const stageEl=document.getElementById('me-stage');
-      const maxW=stageEl.clientWidth-40, maxH=stageEl.clientHeight-120;
-      const vw=edVid.videoWidth||1280, vh=edVid.videoHeight||720;
+      const maxW=(stageEl.clientWidth||window.innerWidth)-40;
+      const maxH=(stageEl.clientHeight||window.innerHeight*0.7)-80;
       meScale=Math.min(1,maxW/vw,maxH/vh);
+      if(!isFinite(meScale)||meScale<=0)meScale=1;
       meCanvasW=Math.round(vw*meScale);
       meCanvasH=Math.round(vh*meScale);
       edVid.style.width=meCanvasW+'px';
       edVid.style.height=meCanvasH+'px';
-      // Reset crop to full video
       meCrop={x:0,y:0,w:meCanvasW,h:meCanvasH};
-      // Apply any existing crop
       if(window._currentVideoCrop){
         const ec=window._currentVideoCrop;
         meCrop={
@@ -2561,16 +2560,36 @@ function openMediaEditor(){
           h:Math.round((1-(ec.top+ec.bottom)/100)*meCanvasH)
         };
       }
-      // Wire crop overlay on top of video
-      const overlay=document.getElementById('me-crop-overlay');
-      overlay.style.width=meCanvasW+'px';
-      overlay.style.height=meCanvasH+'px';
-      overlay.style.display='block';
+      const cropOvl=document.getElementById('me-crop-overlay');
+      cropOvl.style.width=meCanvasW+'px';
+      cropOvl.style.height=meCanvasH+'px';
+      cropOvl.style.display='block';
+      // Remove old crop canvas so it rebuilds at correct size
+      const oldCC=document.getElementById('me-crop-canvas');
+      if(oldCC)oldCC.remove();
+      _cropCanvas=null;_cropCtx=null;
       meRenderCropUI();
       if(!window._meCropWired){window._meCropWired=true;meWireCropOverlay();}
     };
-    if(edVid.videoWidth>0){onMeta();}
-    else{edVid.onloadedmetadata=onMeta;}
+
+    const onMeta=()=>{
+      const vw=edVid.videoWidth||0, vh=edVid.videoHeight||0;
+      if(vw>0&&vh>0){initCropOverlay(vw,vh);}
+      else{initCropOverlay(1280,720);} // fallback dimensions
+    };
+
+    if(edVid.videoWidth>0){
+      onMeta();
+    } else {
+      edVid.onloadedmetadata=onMeta;
+      // Timeout fallback — on some mobile browsers metadata never fires
+      setTimeout(()=>{
+        if(meCanvasW===0){
+          console.warn('Video metadata timeout — using fallback dimensions');
+          onMeta();
+        }
+      },2000);
+    }
 
     document.getElementById('me-hint').textContent='Drag handles to crop out patient info from edges — crops the full video on playback';
     document.getElementById('me-erase-btn').style.display='none';
@@ -3564,20 +3583,34 @@ async function uploadToStorage(file){
     if(error){
       console.error('Storage error:', JSON.stringify(error));
       const errMsg=error.message||'Unknown storage error';
-      setScanBadge('✗ Upload failed — '+errMsg.substring(0,50),'phi-found');
-      showToast('Upload failed: '+errMsg.substring(0,80), true);
-      if(!isVid){
-        uploadedImageUrl=uploadedImageDataUrl;
+      const isQuota=errMsg.toLowerCase().includes('quota')||errMsg.toLowerCase().includes('limit')||error.statusCode===402||error.statusCode===413;
+      // Quota exceeded or storage error — fall back to blob URL for video, dataUrl for image
+      if(isVid){
+        // Use the local blob URL — video can still be posted, just won't persist if blob revoked
+        if(window._uploadedVideoBlobUrl){
+          uploadedVideoUrl=window._uploadedVideoBlobUrl;
+          uploadedImageUrl=null;
+          document.getElementById('phi-scan-status').innerHTML='';
+          // Restore zone to success state
+          const zoneEl=document.getElementById('upload-zone');
+          if(zoneEl){zoneEl.classList.remove('phi-error','uploading');zoneEl.classList.add('has-file');}
+          document.getElementById('uz-icon').textContent='🎬';
+          showToast('⚠️ Storage full — posting with local video. Upgrade Supabase to persist.', true);
+          const editBarErr=document.getElementById('media-edit-bar');
+          if(editBarErr)editBarErr.style.display='block';
+        } else {
+          setScanBadge('✗ Upload failed — '+errMsg.substring(0,50),'phi-found');
+          showToast('Upload failed: '+errMsg.substring(0,80), true);
+          const zone=document.getElementById('upload-zone');
+          if(zone){zone.classList.remove('has-file');zone.classList.add('phi-error');}
+          document.getElementById('uz-icon').textContent='✗';
+          document.getElementById('uz-text').textContent='Upload failed — tap to retry';
+          uploadedVideoUrl=null;
+        }
       } else {
-        // Mark zone as error so it's obvious before submit
-        const zone=document.getElementById('upload-zone');
-        if(zone){zone.classList.remove('has-file');zone.classList.add('phi-error');}
-        document.getElementById('uz-icon').textContent='✗';
-        document.getElementById('uz-text').textContent='Upload failed — tap to retry';
-        uploadedVideoUrl=null;
-        // Keep edit bar so user can still crop
-        const editBarErr=document.getElementById('media-edit-bar');
-        if(editBarErr)editBarErr.style.display='block';
+        // Image: use dataUrl as fallback
+        uploadedImageUrl=uploadedImageDataUrl;
+        setScanBadge('⚠️ Storage full — using local copy','override');
       }
       return;
     }
@@ -3605,14 +3638,19 @@ async function uploadToStorage(file){
     if(!uploadedIsVideo){
       uploadedImageUrl=uploadedImageDataUrl;
     } else {
-      const zone=document.getElementById('upload-zone');
-      if(zone){zone.classList.remove('has-file');zone.classList.add('phi-error');}
-      document.getElementById('uz-icon').textContent='✗';
-      document.getElementById('uz-text').textContent='Upload failed — tap to retry';
-      uploadedVideoUrl=null;
-      // Keep edit bar visible so user can still crop before re-trying
-      const editBarCatch=document.getElementById('media-edit-bar');
-      if(editBarCatch)editBarCatch.style.display='block';
+      // Fall back to blob URL so video can still be posted
+      if(window._uploadedVideoBlobUrl){
+        uploadedVideoUrl=window._uploadedVideoBlobUrl;
+        showToast('⚠️ Storage error — video using local copy');
+        const editBarCatch=document.getElementById('media-edit-bar');
+        if(editBarCatch)editBarCatch.style.display='block';
+      } else {
+        const zone=document.getElementById('upload-zone');
+        if(zone){zone.classList.remove('has-file');zone.classList.add('phi-error');}
+        document.getElementById('uz-icon').textContent='✗';
+        document.getElementById('uz-text').textContent='Upload failed — tap to retry';
+        uploadedVideoUrl=null;
+      }
     }
   }
 }
