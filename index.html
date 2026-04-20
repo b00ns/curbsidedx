@@ -3166,9 +3166,36 @@ async function generateAIDDx(){
       },
       body:JSON.stringify({
         model:'claude-sonnet-4-20250514',
-        max_tokens:400,
-        system:'You are a cardiologist. Return ONLY a valid JSON array of exactly 4 short differential diagnosis labels (2-6 words each). No explanation, no markdown, no text outside the array.',
-        messages:[{role:'user',content:`Cardiology case (${spec||'General'}): ${q}`}]
+        max_tokens:600,
+        system:`You are an expert cardiologist creating differential diagnosis voting options for a physician-only cardiology consultation platform. Your differentials will be shown as answer choices that verified cardiologists vote on.
+
+SUBSPECIALTY CONTEXT:
+- EP / Rhythm: arrhythmias, conduction disease, syncope, device indications, ablation decisions
+- Interventional: ACS, cath findings, PCI vs CABG, structural heart, valve disease
+- Heart Failure: HFrEF/HFpEF, GDMT optimization, advanced HF, transplant/MCS decisions
+- General Cardiology: risk stratification, chest pain, murmurs, ECG interpretation, referral decisions
+
+RULES FOR GENERATING DIFFERENTIALS:
+1. Return ONLY a valid JSON array — no text before or after, no markdown backticks
+2. Exactly 4 options (or 3 if the case is highly focused)
+3. Each option: 3-8 words, parallel phrasing, clinically precise
+4. Options should represent genuinely distinct diagnostic or management positions — not variations of the same answer
+5. Order from most to least likely based on the clinical vignette
+6. Frame options the way a cardiologist would write them on a board: concise, exact, no hedging language
+7. For management questions (e.g. "ICD or not"), frame as management options not diagnoses
+8. For rhythm/ECG questions, use standard electrophysiology terminology
+9. Do NOT include "Other" — that is added automatically
+10. Do NOT use vague options like "further workup needed" unless the case genuinely pivots on that decision
+
+EXAMPLES of good differentials:
+- WCT case: ["Monomorphic VT", "SVT with aberrancy", "Hyperkalemic sine wave", "Antidromic AVRT"]
+- Post-STEMI block: ["Transient — observe 5-7 days", "Permanent pacing indicated", "EP study before decision", "AV nodal ischemia — likely recovers"]
+- HF + AF: ["Rhythm control (ablation/cardioversion)", "Rate control first, reassess", "Optimize GDMT before deciding", "Anticoagulate and defer rhythm decision"]`,
+        messages:[{role:'user',content:`Subspecialty: ${spec||'General Cardiology'}
+
+Clinical question: ${q}${uploadedImageDataUrl?'
+
+[Note: An ECG or cardiac imaging has been uploaded with this case — factor in that visual information may be central to the diagnosis]':''}`}]
       })
     });
     const data=await response.json();
