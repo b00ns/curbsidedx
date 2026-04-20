@@ -3008,29 +3008,39 @@ async function saveMediaEdit(){
   meRedactHistory.forEach(r=>{
     ctx.fillRect(Math.round((r.x-meCrop.x)*OUTPUT_SCALE),Math.round((r.y-meCrop.y)*OUTPUT_SCALE),Math.round(r.w*OUTPUT_SCALE),Math.round(r.h*OUTPUT_SCALE));
   });
-  const blob=await new Promise(res=>finalCanvas.toBlob(res,'image/jpeg',0.93));
-  const editedFile=new File([blob],'edited_ecg.jpg',{type:'image/jpeg'});
-  const dataUrl=finalCanvas.toDataURL('image/jpeg',0.93);
-  uploadedFile=editedFile;
-  uploadedFileStripped=editedFile;
-  uploadedImageDataUrl=dataUrl;
-  uploadedImageUrl=null;
-  uploadedVideoUrl=null;
-  uploadedIsVideo=false;
-  const imgPreview=document.getElementById('upload-preview');
-  const vidPreview=document.getElementById('video-preview');
-  if(imgPreview){imgPreview.src=dataUrl;imgPreview.style.display='block';}
-  if(vidPreview){vidPreview.style.display='none';}
-  try{await uploadToStorage(editedFile);}catch(e){console.warn('Edited image upload:',e);}
-  closeMediaEditor();
+  // Snapshot crop state before closing (closeMediaEditor resets it)
   const cropApplied=(meCrop.x>0.5||meCrop.y>0.5||meCrop.w<meCanvasW-0.5||meCrop.h<meCanvasH-0.5);
   const redactApplied=meRedactHistory.length>0;
+  const _cw=meCanvasW, _ch=meCanvasH;
+
+  // Close editor IMMEDIATELY — don't wait for encoding/upload
+  closeMediaEditor();
   let msg='Media saved';
   if(cropApplied&&redactApplied) msg='✓ Cropped + '+meRedactHistory.length+' erase(s) applied';
   else if(cropApplied) msg='✓ Crop applied';
   else if(redactApplied) msg='✓ '+meRedactHistory.length+' erase(s) applied';
   showToast(msg);
   setScanBadge('✓ Crop & erase applied','override');
+
+  // Encode and upload in background — non-blocking, user doesn't wait
+  (async()=>{
+    const blob=await new Promise(res=>finalCanvas.toBlob(res,'image/jpeg',0.92));
+    const editedFile=new File([blob],'edited_ecg.jpg',{type:'image/jpeg'});
+    const dataUrl=finalCanvas.toDataURL('image/jpeg',0.92);
+    uploadedFile=editedFile;
+    uploadedFileStripped=editedFile;
+    uploadedImageDataUrl=dataUrl;
+    uploadedImageUrl=null;
+    uploadedVideoUrl=null;
+    uploadedIsVideo=false;
+    // Update preview with edited image
+    const imgPreview=document.getElementById('upload-preview');
+    const vidPreview=document.getElementById('video-preview');
+    if(imgPreview){imgPreview.src=dataUrl;imgPreview.style.display='block';}
+    if(vidPreview){vidPreview.style.display='none';}
+    // Upload to storage
+    uploadToStorage(editedFile).catch(e=>console.warn('Edited image upload:',e));
+  })();
 }
 
 
