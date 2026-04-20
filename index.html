@@ -2966,17 +2966,44 @@ async function saveMediaEdit(){
   }
 
   // IMAGE: use canvas to apply crop + redactions at native resolution
-  const OUTPUT_SCALE=1/meScale;
-  const outW=Math.round(meCrop.w*OUTPUT_SCALE);
-  const outH=Math.round(meCrop.h*OUTPUT_SCALE);
+  // Ensure we have the source image — meSourceImg may still be loading on slow devices
+  let srcImg = meSourceImg;
+  if(!srcImg && uploadedImageDataUrl){
+    // Reload from the stored dataUrl synchronously
+    srcImg = await new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = uploadedImageDataUrl;
+    });
+  }
+  if(!srcImg){
+    showToast('Image not ready — please try again', true);
+    btn && (btn.disabled = false);
+    loading && loading.classList.remove('show');
+    return;
+  }
+
+  // If layout polling never completed, derive scale from image vs stage
+  if((meCanvasW <= 0 || meCanvasH <= 0) && srcImg){
+    const stage = document.getElementById('me-stage');
+    const maxW = (stage?.clientWidth||window.innerWidth) - 24;
+    const maxH = (stage?.clientHeight||window.innerHeight*0.7) - 24;
+    meScale = Math.min(maxW/srcImg.naturalWidth, maxH/srcImg.naturalHeight);
+    if(!isFinite(meScale)||meScale<=0) meScale=1;
+    meCanvasW = Math.round(srcImg.naturalWidth * meScale);
+    meCanvasH = Math.round(srcImg.naturalHeight * meScale);
+    meCrop = {x:0, y:0, w:meCanvasW, h:meCanvasH};
+  }
+  const OUTPUT_SCALE = meScale > 0 ? 1/meScale : 1;
+  const outW=Math.max(1, Math.round(meCrop.w*OUTPUT_SCALE));
+  const outH=Math.max(1, Math.round(meCrop.h*OUTPUT_SCALE));
   const finalCanvas=document.createElement('canvas');
   finalCanvas.width=outW; finalCanvas.height=outH;
   const ctx=finalCanvas.getContext('2d');
   const cropXNative=Math.round(meCrop.x*OUTPUT_SCALE);
   const cropYNative=Math.round(meCrop.y*OUTPUT_SCALE);
-  if(meSourceImg){
-    ctx.drawImage(meSourceImg,cropXNative,cropYNative,outW,outH,0,0,outW,outH);
-  }
+  ctx.drawImage(srcImg, cropXNative, cropYNative, outW, outH, 0, 0, outW, outH);
   ctx.fillStyle='#000';
   meRedactHistory.forEach(r=>{
     ctx.fillRect(Math.round((r.x-meCrop.x)*OUTPUT_SCALE),Math.round((r.y-meCrop.y)*OUTPUT_SCALE),Math.round(r.w*OUTPUT_SCALE),Math.round(r.h*OUTPUT_SCALE));
@@ -3136,10 +3163,25 @@ function smartFallbackDDx(q, spec){
   // QT
   if(/qt|torsade|long.qt/i.test(text))
     return['Congenital long QT syndrome','Drug-induced QT prolongation','Torsades de pointes','Electrolyte-mediated QTc prolongation'];
+  // Leadless pacemaker specific
+  if(/leadless|micra|aveir|fixat|tine|screw|helix/i.test(text))
+    return['Apical RV — acceptable fixation','Mid-septal — reposition','Outflow tract — too high','RV free wall — poor site'];
+  // Valve disease
+  if(/aortic.stenosis|avr|tavi|tavr|mitral|mvr|valve/i.test(text))
+    return['Severe AS — TAVI/SAVR indicated','Moderate AS — watchful waiting','Bicuspid AV — surveillance','Low-flow low-gradient AS'];
+  // Hypertrophic cardiomyopathy
+  if(/hcm|hocm|hypertrophic|lvot.obstruction|septal/i.test(text))
+    return['Obstructive HCM (HOCM)','Non-obstructive HCM','Athletic heart remodeling','Hypertensive LVH'];
+  // Cardiac tamponade / pericardial
+  if(/tamponade|pericardi|effusion/i.test(text))
+    return['Cardiac tamponade — drain urgently','Large effusion — monitor closely','Inflammatory pericarditis','Malignant effusion'];
+  // EP lead position
+  if(/lead|electrode|tip|position|septal|apical|fixat/i.test(text)&&/pacemaker|icd|crt|device/i.test(text))
+    return['Appropriate position — proceed','Reposition — suboptimal location','Lead dislodgement — early','Active fixation failure'];
   // Specialty-based defaults
   if(spec==='EP') return['Ventricular tachycardia','SVT with aberrancy','Idiopathic VF','Ion channelopathy'];
-  if(spec==='IC') return['Obstructive CAD / ACS','Vasospastic angina','MINOCA','Non-cardiac chest pain'];
-  if(spec==='HF') return['HFrEF exacerbation','HFpEF decompensation','Cardiac tamponade','High-output heart failure'];
+  if(spec==='IC') return['Obstructive CAD — PCI indicated','Vasospastic angina','MINOCA','Plaque rupture without occlusion'];
+  if(spec==='HF') return['HFrEF decompensation','HFpEF — volume overload','High-output heart failure','Cardiac tamponade'];
   return['Ischemic etiology','Structural heart disease','Primary arrhythmia','Non-cardiac etiology'];
 }
 
@@ -3154,8 +3196,56 @@ async function generateAIDDx(){
   loading.classList.add('show');
 
   let ddx=null;
+  let usedAPI=false;
 
-  // Try Claude API first (works when served from claude.ai or a web server)
+  const SYSTEM_PROMPT=`You are a board-certified cardiac electrophysiologist and interventional cardiologist with expertise across all cardiology subspecialties. You generate differential diagnosis or management option lists for a physician-only cardiology curbside platform where verified cardiologists vote on the most likely answer.
+
+SUBSPECIALTY CONTEXT:
+- EP / Rhythm: arrhythmias, conduction disease, syncope, device indications (ICD/CRT/PPM), ablation decisions, leadless pacemakers
+- Interventional: ACS spectrum, cath findings, PCI vs CABG, structural heart, valve disease, lead/device positioning
+- Heart Failure: HFrEF/HFpEF, GDMT optimization, advanced HF therapies, transplant/MCS
+- General Cardiology: risk stratification, chest pain workup, murmurs, ECG interpretation
+
+STRICT OUTPUT RULES:
+1. Return ONLY a valid JSON array. No text, no explanation, no markdown, no backticks.
+2. Exactly 4 options. Only 3 if the case has exactly 3 meaningful possibilities.
+3. Each option: 3-9 words. Parallel grammatical structure. Clinically precise terminology.
+4. Each option must represent a MEANINGFULLY DISTINCT clinical position — not synonyms or minor variations.
+5. Order by clinical probability given the vignette (most likely first).
+6. Write options as a cardiologist would say them in a case conference: concise, specific, no hedging.
+7. For diagnostic questions: list diagnoses or anatomical findings.
+8. For management/device questions: list management decisions (e.g. "Proceed with fixation", "Reposition atrial lead").
+9. For ECG/rhythm questions: use standard EP/cardiology terminology.
+10. NEVER include "Other" or "Unknown" — those are added automatically.
+11. If an image is provided, analyze it carefully — it is central to the diagnosis.
+
+CALIBRATION EXAMPLES (these show the style and specificity expected):
+ECG wide complex tach: ["Monomorphic VT", "SVT with aberrancy", "Preexcited AF (WPW)", "Hyperkalemia"]
+Post-STEMI AV block: ["Transient — observe 5-7 days", "Permanent pacing indicated now", "EP study before deciding", "AV nodal ischemia — will recover"]
+Leadless pacemaker position: ["Apical RV — acceptable fixation", "Mid-septal — reposition recommended", "Outflow tract — too high", "RV free wall — poor fixation site"]
+HFrEF + new LBBB: ["CRT-D indicated (QRS ≥150ms)", "Optimize GDMT first, reassess", "CRT-P sufficient, low SCD risk", "VF ablation + CRT consideration"]
+Cath: LAD lesion: ["FFR-guided PCI", "CABG preferred (complex disease)", "Medical therapy — not flow-limiting", "Defer — chronic total occlusion"]`;
+
+  // Build user message — include image if available
+  let userContent;
+  if(uploadedImageDataUrl&&uploadedImageDataUrl.startsWith('data:image')){
+    // Send the actual image for visual analysis
+    const mediaType=uploadedImageDataUrl.split(';')[0].split(':')[1]||'image/jpeg';
+    const b64=uploadedImageDataUrl.split(',')[1];
+    userContent=[
+      {type:'image',source:{type:'base64',media_type:mediaType,data:b64}},
+      {type:'text',text:`Subspecialty: ${spec||'General Cardiology'}
+
+Clinical question: ${q}
+
+Analyze the image above carefully — it is the ECG, angiogram, or cardiac imaging for this case. Generate the differential based on both the image findings and the clinical question.`}
+    ];
+  } else {
+    userContent=`Subspecialty: ${spec||'General Cardiology'}
+
+Clinical question: ${q}`;
+  }
+
   try{
     const response=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
@@ -3166,53 +3256,39 @@ async function generateAIDDx(){
       },
       body:JSON.stringify({
         model:'claude-sonnet-4-20250514',
-        max_tokens:600,
-        system:`You are an expert cardiologist creating differential diagnosis voting options for a physician-only cardiology consultation platform. Your differentials will be shown as answer choices that verified cardiologists vote on.
-
-SUBSPECIALTY CONTEXT:
-- EP / Rhythm: arrhythmias, conduction disease, syncope, device indications, ablation decisions
-- Interventional: ACS, cath findings, PCI vs CABG, structural heart, valve disease
-- Heart Failure: HFrEF/HFpEF, GDMT optimization, advanced HF, transplant/MCS decisions
-- General Cardiology: risk stratification, chest pain, murmurs, ECG interpretation, referral decisions
-
-RULES FOR GENERATING DIFFERENTIALS:
-1. Return ONLY a valid JSON array — no text before or after, no markdown backticks
-2. Exactly 4 options (or 3 if the case is highly focused)
-3. Each option: 3-8 words, parallel phrasing, clinically precise
-4. Options should represent genuinely distinct diagnostic or management positions — not variations of the same answer
-5. Order from most to least likely based on the clinical vignette
-6. Frame options the way a cardiologist would write them on a board: concise, exact, no hedging language
-7. For management questions (e.g. "ICD or not"), frame as management options not diagnoses
-8. For rhythm/ECG questions, use standard electrophysiology terminology
-9. Do NOT include "Other" — that is added automatically
-10. Do NOT use vague options like "further workup needed" unless the case genuinely pivots on that decision
-
-EXAMPLES of good differentials:
-- WCT case: ["Monomorphic VT", "SVT with aberrancy", "Hyperkalemic sine wave", "Antidromic AVRT"]
-- Post-STEMI block: ["Transient — observe 5-7 days", "Permanent pacing indicated", "EP study before decision", "AV nodal ischemia — likely recovers"]
-- HF + AF: ["Rhythm control (ablation/cardioversion)", "Rate control first, reassess", "Optimize GDMT before deciding", "Anticoagulate and defer rhythm decision"]`,
-        messages:[{role:'user',content:`Subspecialty: ${spec||'General Cardiology'}
-
-Clinical question: ${q}${uploadedImageDataUrl?'\n\n[Note: An ECG or cardiac imaging has been uploaded with this case — factor in that visual information may be central to the diagnosis]':''}`}]
+        max_tokens:400,
+        system:SYSTEM_PROMPT,
+        messages:[{role:'user',content:userContent}]
       })
     });
-    const data=await response.json();
-    const raw=data.content?.[0]?.text||'';
-    const match=raw.match(/\[[\s\S]*\]/);
-    if(match){
-      const parsed=JSON.parse(match[0]);
-      if(Array.isArray(parsed)&&parsed.length>0) ddx=parsed.slice(0,4);
+    if(!response.ok){
+      const err=await response.json().catch(()=>({}));
+      console.warn('Claude API error:',response.status,err?.error?.message||'');
+    } else {
+      const data=await response.json();
+      const raw=data.content?.[0]?.text||'';
+      // Parse JSON array — strip any accidental markdown
+      const clean=raw.replace(/```[a-z]*/g,'').replace(/```/g,'').trim();
+      const match=clean.match(/\[[\s\S]*?\]/);
+      if(match){
+        const parsed=JSON.parse(match[0]);
+        if(Array.isArray(parsed)&&parsed.length>=2){
+          ddx=parsed.slice(0,4).map(s=>String(s).trim());
+          usedAPI=true;
+        }
+      }
     }
   }catch(e){
-    console.warn('Claude API unavailable (likely CORS/file:// context), using smart fallback:',e.message);
+    console.warn('Claude API call failed:',e.message);
   }
 
-  // Fall back to keyword-based smart suggestions
+  // Fallback to keyword heuristics if API unavailable
   if(!ddx){
     ddx=smartFallbackDDx(q,spec);
-    showToast('Smart suggestions generated — edit as needed');
+    showToast('Suggestions generated — edit as needed');
   } else {
-    showToast('AI differential generated — review and edit before posting');
+    const withImage=uploadedImageDataUrl?'(image analyzed) ':'';
+    showToast('✦ AI differential '+withImage+'generated — review before posting');
   }
 
   // Populate inputs
