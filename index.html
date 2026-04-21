@@ -2579,6 +2579,8 @@ function openMediaEditor(){
       // Snapshot dimensions for saveMediaEdit (let vars can become stale on mobile)
       window._meVideoCanvasW=meCanvasW;
       window._meVideoCanvasH=meCanvasH;
+      // Snapshot initial meCrop too (before any drag)
+      window._meCropSnapshot={...meCrop};
     };
 
     const onMeta=()=>{
@@ -2722,6 +2724,8 @@ function meHandlePositions(){
 }
 
 function meRenderCropUI(){
+  // Keep window snapshot in sync — reliable across async boundaries
+  window._meCropSnapshot={...meCrop};
   if(!_cropCanvas){
     // Create canvas overlay on top of the image canvas, same size
     _cropCanvas=document.createElement('canvas');
@@ -3023,6 +3027,10 @@ async function saveMediaEdit(){
       vidPrev.style.objectFit='fill';
       vidPrev.style.transform=`translate(${offX}%,${offY}%) scale(${scaleX.toFixed(4)},${scaleY.toFixed(4)})`;
       vidPrev.style.transformOrigin='top left';
+      // Seek to show a frame (fixes black screen on iOS)
+      if(vidPrev.readyState===0&&vidPrev.src){vidPrev.load();}
+      if(vidPrev.duration>0){vidPrev.currentTime=Math.min(0.5,vidPrev.duration*0.1);}
+      else{vidPrev.onloadedmetadata=()=>{vidPrev.currentTime=Math.min(0.5,vidPrev.duration*0.1);};}
       showToast('✓ Crop applied — preview updated');
       setScanBadge('✓ Video cropped — crop will apply on playback','override');
     } else if(!hasCrop){
@@ -3585,13 +3593,15 @@ async function handleUpload(input){
     if(editBarV)editBarV.style.display='block';
 
     uploadedImageDataUrl=null;
-    await uploadToStorage(rawFile);
-    // Re-confirm success state in case uploadToStorage changed zone
-    if(uploadedVideoUrl||window._uploadedVideoBlobUrl){
-      zone.classList.remove('uploading','phi-error');
-      zone.classList.add('has-file');
-      document.getElementById('uz-icon').textContent='🎬';
-    }
+    // Upload in background — don't block the UI on iOS
+    // The blob URL is already available for editing/posting
+    uploadToStorage(rawFile).then(()=>{
+      if(uploadedVideoUrl||window._uploadedVideoBlobUrl){
+        zone.classList.remove('uploading','phi-error');
+        zone.classList.add('has-file');
+        document.getElementById('uz-icon').textContent='🎬';
+      }
+    }).catch(e=>console.warn('Video upload error:',e));
 
   } else {
     // Image/PDF flow — unchanged
