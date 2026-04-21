@@ -307,8 +307,12 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text);overflo
 .upload-preview{width:100%;max-height:320px;object-fit:contain;border-radius:var(--r);margin-top:8px;display:none;background:var(--bg3);}
 /* Video preview in upload zone */
 .video-preview{
-  width:100%;border-radius:var(--r);margin-top:8px;display:none;
+  width:100%;display:block;
   max-height:240px;background:#000;object-fit:contain;
+}
+#video-preview-wrap{
+  width:100%;border-radius:var(--r);margin-top:8px;
+  background:#000;overflow:hidden;
 }
 /* Video player in case cards */
 .case-video-wrap{
@@ -2070,7 +2074,9 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
         </div>
         <div id="phi-scan-status" style="text-align:center;margin-top:4px;"></div>
         <img id="upload-preview" class="upload-preview" alt="ECG preview">
-        <video id="video-preview" class="video-preview" controls muted playsinline></video>
+        <div id="video-preview-wrap" style="display:none;overflow:hidden;border-radius:var(--r);margin-top:8px;background:#000;position:relative;">
+          <video id="video-preview" class="video-preview" controls muted playsinline style="display:block;width:100%;margin:0;border-radius:0;"></video>
+        </div>
         <div class="phi-video-warning" id="phi-video-warning">
           ⚠️ <strong>Video PHI reminder:</strong> Cath lab and echo systems often embed patient name, DOB, and MRN in the video filename or burned-in overlay. Before uploading, confirm the filename contains no patient identifiers and that any on-screen patient info has been cropped or redacted.
         </div>
@@ -2979,30 +2985,46 @@ async function saveMediaEdit(){
     document.getElementById('me-draw-canvas').style.display='block';
     closeMediaEditor();
     const hasCrop=cropTop>0.5||cropLeft>0.5||cropBottom>0.5||cropRight>0.5;
-    // Apply crop preview to the video-preview element immediately
-    if(hasCrop){
-      const vidPrev=document.getElementById('video-preview');
-      if(vidPrev){
-        // Use scale+translate to show only the cropped region, filling the element
-        // This avoids the black bars that clip-path alone produces
-        const t=cropData.top/100, l=cropData.left/100;
-        const b=cropData.bottom/100, r=cropData.right/100;
-        const scaleX=1/(1-l-r)||1;
-        const scaleY=1/(1-t-b)||1;
-        const offX=-(l*scaleX*100).toFixed(2);
-        const offY=-(t*scaleY*100).toFixed(2);
-        vidPrev.style.objectFit='fill';
-        vidPrev.style.transform=`translate(${offX}%,${offY}%) scale(${scaleX.toFixed(4)},${scaleY.toFixed(4)})`;
-        vidPrev.style.transformOrigin='top left';
-        // Wrap with overflow hidden so scaled content is clipped
-        const wrap=vidPrev.parentElement;
-        if(wrap)wrap.style.overflow='hidden';
-      }
+    // Apply crop preview using wrapper+transform technique
+    // Wrapper = the visible viewport (cropped size)
+    // Video element = scaled up so only the cropped region shows
+    const vidPrev=document.getElementById('video-preview');
+    const vidWrap=document.getElementById('video-preview-wrap');
+    if(hasCrop&&vidPrev&&vidWrap){
+      const t=cropData.top/100, l=cropData.left/100;
+      const b=cropData.bottom/100, r=cropData.right/100;
+      // What fraction of the video remains after cropping
+      const visW=1-l-r;  // e.g. crop 10% left+right => 80% remains
+      const visH=1-t-b;
+      // Scale the video up so the visible region fills 100% of the wrapper
+      const scaleX=1/visW;
+      const scaleY=1/visH;
+      // Offset so the top-left of the visible region aligns to wrapper top-left
+      const offX=(-l/visW*100).toFixed(3);
+      const offY=(-t/visH*100).toFixed(3);
+      // Size the wrapper to have the cropped aspect ratio (max 240px tall)
+      const maxH=240;
+      vidWrap.style.display='block';
+      vidWrap.style.maxHeight=maxH+'px';
+      vidWrap.style.overflow='hidden';
+      // Set video to fill wrapper then transform
+      vidPrev.style.display='block';
+      vidPrev.style.width='100%';
+      vidPrev.style.maxHeight='none';
+      vidPrev.style.objectFit='fill';
+      vidPrev.style.transform=`translate(${offX}%,${offY}%) scale(${scaleX.toFixed(4)},${scaleY.toFixed(4)})`;
+      vidPrev.style.transformOrigin='top left';
       showToast('✓ Crop applied — preview updated');
       setScanBadge('✓ Video cropped — crop will apply on playback','override');
-    } else {
-      const vidPrev=document.getElementById('video-preview');
-      if(vidPrev){vidPrev.style.transform='';vidPrev.style.objectFit='';}
+    } else if(!hasCrop){
+      // Reset to uncropped state
+      if(vidPrev){
+        vidPrev.style.transform='';
+        vidPrev.style.objectFit='';
+        vidPrev.style.maxHeight='240px';
+        vidPrev.style.width='100%';
+      }
+      if(vidWrap){vidWrap.style.overflow='hidden';vidWrap.style.maxHeight='240px';}
       showToast('No crop applied');
     }
     return;
@@ -3080,7 +3102,7 @@ async function saveMediaEdit(){
     const imgPreview=document.getElementById('upload-preview');
     const vidPreview=document.getElementById('video-preview');
     if(imgPreview){imgPreview.src=dataUrl;imgPreview.style.display='block';}
-    if(vidPreview){vidPreview.style.display='none';}
+    if(vidPreview){vidPreview.style.display='none';const vpWS=document.getElementById('video-preview-wrap');if(vpWS)vpWS.style.display='none';}
     // Upload to storage
     uploadToStorage(editedFile).catch(e=>console.warn('Edited image upload:',e));
   })();
@@ -3513,6 +3535,7 @@ async function handleUpload(input){
   // Hide both previews initially
   if(imgPreview)imgPreview.style.display='none';
   if(vidPreview){vidPreview.style.display='none';vidPreview.src='';}
+  const vpWrapHide=document.getElementById('video-preview-wrap');if(vpWrapHide)vpWrapHide.style.display='none';
 
   document.getElementById('uz-text').textContent=rawFile.name;
   document.getElementById('uz-icon').textContent='⏳';
@@ -3530,6 +3553,7 @@ async function handleUpload(input){
     if(vidPreview){
       vidPreview.src=blobUrl;
       vidPreview.style.display='block';
+      const vpWrap=document.getElementById('video-preview-wrap');if(vpWrap)vpWrap.style.display='block';
     }
     if(imagePreview)imgPreview.style.display='none';
     if(videoWarning)videoWarning.classList.add('show');
@@ -4487,8 +4511,11 @@ function closePostModal(){
     vPrevReset.style.clipPath='';
     vPrevReset.style.transform='';
     vPrevReset.style.objectFit='';
-    if(vPrevReset.parentElement)vPrevReset.parentElement.style.overflow='';
+    vPrevReset.style.maxHeight='240px';
+    vPrevReset.style.width='100%';
   }
+  const vWrapReset=document.getElementById('video-preview-wrap');
+  if(vWrapReset){vWrapReset.style.display='none';vWrapReset.style.maxHeight='240px';vWrapReset.style.overflow='hidden';}
   uploadedFile=null;uploadedFileStripped=null;
   uploadedImageUrl=null;uploadedImageDataUrl=null;
   uploadedVideoUrl=null;uploadedIsVideo=false;
@@ -4500,6 +4527,7 @@ function closePostModal(){
   document.getElementById('uz-text').textContent='ECG, pacemaker report, telemetry strip, or angiogram clip';
   document.getElementById('upload-preview').style.display='none';
   const vp=document.getElementById('video-preview');if(vp){vp.style.display='none';vp.src='';}
+  const vpW2=document.getElementById('video-preview-wrap');if(vpW2){vpW2.style.display='none';vpW2.style.cssText='display:none;overflow:hidden;border-radius:var(--r);margin-top:8px;background:#000;position:relative;';}
   const vw=document.getElementById('phi-video-warning');if(vw)vw.classList.remove('show');
   document.getElementById('phi-scan-status').innerHTML='';
   hidePHIAlert();
