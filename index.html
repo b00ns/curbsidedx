@@ -2979,8 +2979,24 @@ async function saveMediaEdit(){
     document.getElementById('me-draw-canvas').style.display='block';
     closeMediaEditor();
     const hasCrop=cropTop>0.5||cropLeft>0.5||cropBottom>0.5||cropRight>0.5;
-    showToast(hasCrop?`✓ Crop saved — will be applied on playback (top:${cropTop.toFixed(0)}% L:${cropLeft.toFixed(0)}% B:${cropBottom.toFixed(0)}% R:${cropRight.toFixed(0)}%)`:'No crop applied');
-    if(hasCrop)setScanBadge('✓ Video crop set — applied on playback','override');
+    // Apply crop preview to the video-preview element immediately
+    if(hasCrop){
+      const vidPrev=document.getElementById('video-preview');
+      if(vidPrev){
+        const cropStyle=videoCropStyle(cropData);
+        vidPrev.style.cssText=vidPrev.style.cssText.replace(/clip-path:[^;]+;?/,'')+cropStyle;
+        // Wrap in a container that hides the overflow so black bars disappear
+        const wrap=vidPrev.parentElement;
+        if(wrap)wrap.style.overflow='hidden';
+      }
+      showToast('✓ Crop applied — preview updated');
+      setScanBadge('✓ Video cropped — crop will apply on playback','override');
+    } else {
+      // Remove any existing crop
+      const vidPrev=document.getElementById('video-preview');
+      if(vidPrev)vidPrev.style.clipPath='';
+      showToast('No crop applied');
+    }
     return;
   }
 
@@ -3062,6 +3078,36 @@ async function saveMediaEdit(){
   })();
 }
 
+
+function expandVideo(vidId){
+  const vid=document.getElementById(vidId);
+  if(!vid)return;
+  // Try native fullscreen first
+  if(vid.requestFullscreen){vid.requestFullscreen();}
+  else if(vid.webkitRequestFullscreen){vid.webkitRequestFullscreen();}
+  else if(vid.webkitEnterFullscreen){vid.webkitEnterFullscreen();} // iOS Safari
+  else{
+    // Fallback: show in a modal overlay
+    const ov=document.createElement('div');
+    ov.style.cssText='position:fixed;inset:0;background:#000;z-index:9999;display:flex;align-items:center;justify-content:center;';
+    ov.onclick=()=>ov.remove();
+    const v2=document.createElement('video');
+    v2.src=vid.src;
+    v2.controls=true;
+    v2.autoplay=true;
+    v2.playsinline=true;
+    v2.style.cssText='max-width:100%;max-height:100%;';
+    // Apply same crop if any
+    if(vid.style.clipPath)v2.style.clipPath=vid.style.clipPath;
+    const closeBtn=document.createElement('button');
+    closeBtn.textContent='✕';
+    closeBtn.style.cssText='position:absolute;top:16px;right:16px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;width:36px;height:36px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;';
+    closeBtn.onclick=(e)=>{e.stopPropagation();ov.remove();};
+    ov.appendChild(v2);
+    ov.appendChild(closeBtn);
+    document.body.appendChild(ov);
+  }
+}
 
 function showAuthError(form,msg){
   const el=document.getElementById(form+'-error');el.textContent=msg;el.classList.add('show');
@@ -4421,6 +4467,9 @@ function closePostModal(){
   // Reset edit bar and stale media state so next open is clean
   const editBar=document.getElementById('media-edit-bar');
   if(editBar)editBar.style.display='none';
+  // Clear any crop preview applied to video-preview
+  const vPrevReset=document.getElementById('video-preview');
+  if(vPrevReset){vPrevReset.style.clipPath='';if(vPrevReset.parentElement)vPrevReset.parentElement.style.overflow='';}
   uploadedFile=null;uploadedFileStripped=null;
   uploadedImageUrl=null;uploadedImageDataUrl=null;
   uploadedVideoUrl=null;uploadedIsVideo=false;
@@ -5039,13 +5088,17 @@ function openCaseDetail(id){
   // ECG / Video
   const ecgBlock=document.getElementById('cd-ecg-block');
   if(c.videoUrl){
+    const vidId='cdvid-'+c.id;
     ecgBlock.innerHTML=`<div class="cd-video-block">
       <div class="cd-video-label">
         <div class="cd-ecg-label-left">🎬 Angiogram / Video clip</div>
-        <div class="cd-ecg-label-right">De-identified ✓</div>
+        <div class="cd-ecg-label-right" style="display:flex;align-items:center;gap:8px;">
+          <button onclick="expandVideo('${vidId}')" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:rgba(255,255,255,.8);font-size:11px;padding:3px 9px;cursor:pointer;font-family:var(--font-sans);display:flex;align-items:center;gap:4px;">⛶ Fullscreen</button>
+          <span>De-identified ✓</span>
+        </div>
       </div>
-      <div class="cd-video-player-wrap" style="overflow:hidden;">
-        <video class="cd-video-player" src="${c.videoUrl}" controls playsinline preload="metadata"
+      <div class="cd-video-player-wrap" style="overflow:hidden;position:relative;">
+        <video id="${vidId}" class="cd-video-player" src="${c.videoUrl}" controls playsinline preload="metadata"
           style="${c.videoCrop?videoCropStyle(c.videoCrop):''}">
         </video>
       </div>
