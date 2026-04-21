@@ -2576,6 +2576,9 @@ function openMediaEditor(){
       _cropCanvas=null;_cropCtx=null;
       meRenderCropUI();
       if(!window._meCropWired){window._meCropWired=true;meWireCropOverlay();}
+      // Snapshot dimensions for saveMediaEdit (let vars can become stale on mobile)
+      window._meVideoCanvasW=meCanvasW;
+      window._meVideoCanvasH=meCanvasH;
     };
 
     const onMeta=()=>{
@@ -2857,6 +2860,8 @@ function meCropMove(clientX,clientY){
     if(handle.includes('n')){const ny=Math.max(0,Math.min(o.y+o.h-MIN,o.y+dy));h=o.y+o.h-ny;y=ny;}
   }
   meCrop={x:Math.round(x),y:Math.round(y),w:Math.round(w),h:Math.round(h)};
+  // Keep window snapshot in sync so saveMediaEdit can read it reliably
+  window._meCropSnapshot={...meCrop};
   if(!_meRafPending){
     _meRafPending=true;
     requestAnimationFrame(()=>{_meRafPending=false;meRenderCropUI();});
@@ -2970,11 +2975,15 @@ function closeMediaEditor(){
 
 async function saveMediaEdit(){
   if(meIsVideo){
-    // VIDEO: save crop as percentages — applied via CSS on playback (whole video cropped, not just a frame)
-    const cropTop=meCanvasH>0?(meCrop.y/meCanvasH*100):0;
-    const cropLeft=meCanvasW>0?(meCrop.x/meCanvasW*100):0;
-    const cropBottom=meCanvasH>0?((meCanvasH-meCrop.y-meCrop.h)/meCanvasH*100):0;
-    const cropRight=meCanvasW>0?((meCanvasW-meCrop.x-meCrop.w)/meCanvasW*100):0;
+    // VIDEO: save crop as percentages — use window snapshots for reliability on mobile
+    // (let vars meCanvasW/H can be stale if video metadata loading was slow)
+    const _cw=window._meVideoCanvasW||meCanvasW;
+    const _ch=window._meVideoCanvasH||meCanvasH;
+    const _crop=window._meCropSnapshot||meCrop;
+    const cropTop=_ch>0?(_crop.y/_ch*100):0;
+    const cropLeft=_cw>0?(_crop.x/_cw*100):0;
+    const cropBottom=_ch>0?((_ch-_crop.y-_crop.h)/_ch*100):0;
+    const cropRight=_cw>0?((_cw-_crop.x-_crop.w)/_cw*100):0;
     const cropData={top:+cropTop.toFixed(2),left:+cropLeft.toFixed(2),bottom:+cropBottom.toFixed(2),right:+cropRight.toFixed(2)};
     window._pendingVideoCrop=cropData;
     window._currentVideoCrop=cropData;
