@@ -2983,18 +2983,26 @@ async function saveMediaEdit(){
     if(hasCrop){
       const vidPrev=document.getElementById('video-preview');
       if(vidPrev){
-        const cropStyle=videoCropStyle(cropData);
-        vidPrev.style.cssText=vidPrev.style.cssText.replace(/clip-path:[^;]+;?/,'')+cropStyle;
-        // Wrap in a container that hides the overflow so black bars disappear
+        // Use scale+translate to show only the cropped region, filling the element
+        // This avoids the black bars that clip-path alone produces
+        const t=cropData.top/100, l=cropData.left/100;
+        const b=cropData.bottom/100, r=cropData.right/100;
+        const scaleX=1/(1-l-r)||1;
+        const scaleY=1/(1-t-b)||1;
+        const offX=-(l*scaleX*100).toFixed(2);
+        const offY=-(t*scaleY*100).toFixed(2);
+        vidPrev.style.objectFit='fill';
+        vidPrev.style.transform=`translate(${offX}%,${offY}%) scale(${scaleX.toFixed(4)},${scaleY.toFixed(4)})`;
+        vidPrev.style.transformOrigin='top left';
+        // Wrap with overflow hidden so scaled content is clipped
         const wrap=vidPrev.parentElement;
         if(wrap)wrap.style.overflow='hidden';
       }
       showToast('✓ Crop applied — preview updated');
       setScanBadge('✓ Video cropped — crop will apply on playback','override');
     } else {
-      // Remove any existing crop
       const vidPrev=document.getElementById('video-preview');
-      if(vidPrev)vidPrev.style.clipPath='';
+      if(vidPrev){vidPrev.style.transform='';vidPrev.style.objectFit='';}
       showToast('No crop applied');
     }
     return;
@@ -3545,6 +3553,12 @@ async function handleUpload(input){
 
     uploadedImageDataUrl=null;
     await uploadToStorage(rawFile);
+    // Re-confirm success state in case uploadToStorage changed zone
+    if(uploadedVideoUrl||window._uploadedVideoBlobUrl){
+      zone.classList.remove('uploading','phi-error');
+      zone.classList.add('has-file');
+      document.getElementById('uz-icon').textContent='🎬';
+    }
 
   } else {
     // Image/PDF flow — unchanged
@@ -4469,7 +4483,12 @@ function closePostModal(){
   if(editBar)editBar.style.display='none';
   // Clear any crop preview applied to video-preview
   const vPrevReset=document.getElementById('video-preview');
-  if(vPrevReset){vPrevReset.style.clipPath='';if(vPrevReset.parentElement)vPrevReset.parentElement.style.overflow='';}
+  if(vPrevReset){
+    vPrevReset.style.clipPath='';
+    vPrevReset.style.transform='';
+    vPrevReset.style.objectFit='';
+    if(vPrevReset.parentElement)vPrevReset.parentElement.style.overflow='';
+  }
   uploadedFile=null;uploadedFileStripped=null;
   uploadedImageUrl=null;uploadedImageDataUrl=null;
   uploadedVideoUrl=null;uploadedIsVideo=false;
