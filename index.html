@@ -1,11 +1,9 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
+<html lang="en" data-theme="light"><head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>CurbsideDx — Physician Curbside Community</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&amp;family=DM+Sans:wght@300;400;500;600&amp;display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/exifr@7/dist/full.umd.js"></script>
 <script>
@@ -1454,8 +1452,29 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
   .toast{left:12px;right:12px;bottom:90px;width:auto;border-radius:10px;transform:translateX(0) translateY(200px);}
 }
 </style>
-</head>
-<body>
+<style id="claude-agent-animation-styles">
+      @keyframes claude-pulse {
+        0% {
+          box-shadow: 
+            inset 0 0 10px rgba(217, 119, 87, 0.5),
+            inset 0 0 20px rgba(217, 119, 87, 0.3),
+            inset 0 0 30px rgba(217, 119, 87, 0.1);
+        }
+        50% {
+          box-shadow: 
+            inset 0 0 15px rgba(217, 119, 87, 0.7),
+            inset 0 0 25px rgba(217, 119, 87, 0.5),
+            inset 0 0 35px rgba(217, 119, 87, 0.2);
+        }
+        100% {
+          box-shadow: 
+            inset 0 0 10px rgba(217, 119, 87, 0.5),
+            inset 0 0 20px rgba(217, 119, 87, 0.3),
+            inset 0 0 30px rgba(217, 119, 87, 0.1);
+        }
+      }
+    </style></head>
+<body style="overflow: hidden;">
 
 <!-- AUTH MODAL -->
 <div class="modal-overlay hidden" id="auth-modal">
@@ -1546,7 +1565,7 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
       </div>
     </div>
     <div class="welcome-actions">
-      <button class="welcome-primary-btn" id="welcome-primary-btn" onclick="dismissWelcome('verify')">Verify my NPI & start →</button>
+      <button class="welcome-primary-btn" id="welcome-primary-btn" onclick="dismissWelcome('verify')">Verify my NPI &amp; start →</button>
       <button class="welcome-secondary-btn" onclick="dismissWelcome('tour')">Take a quick tour first</button>
     </div>
     <div class="welcome-skip"><a onclick="dismissWelcome('skip')">Skip for now — go straight to the feed</a></div>
@@ -1596,11 +1615,9 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
   </div>
   <div class="sidebar-footer">
     <div class="user-row" id="mobile-user-row" onclick="closeSidebarDrawer();openProfile();" style="cursor:pointer;">
-      <!-- Populated by updateUserUI() when signed in; shows sign-in button when not -->
-      <div class="avatar" style="background:linear-gradient(135deg,#3b82f6,#8b5cf6)">?</div>
-      <div class="user-info"><div class="name">Not signed in</div><div class="role">—</div></div>
-      <div><div class="unverified-badge" onclick="event.stopPropagation();closeSidebarDrawer();showModal('auth-modal');" style="cursor:pointer;">Sign in</div></div>
-    </div>
+      <div class="avatar" style="background:linear-gradient(135deg,#3b82f6,#8b5cf6);overflow:hidden"><img src="https://ebzuytnzbwmzrrspmmqr.supabase.co/storage/v1/object/public/avatars/7ad2c9a4-cb2a-430c-8ac4-89357455e05f/avatar_1775862962839.jpg" alt="Dr. Mark Lee" style="width:100%;height:100%;object-fit:cover;border-radius:50%;"></div>
+      <div class="user-info"><div class="name">Dr. Mark Lee</div><div class="role">EP · Memorial Cardiology Medical Group</div></div>
+      <div><div class="verified-badge">MD ✓</div></div></div>
   </div>
 </div>
 
@@ -1614,15 +1631,15 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
     <div class="logo-area"><div class="logo"><span class="logo-dot"></span>CurbsideDx</div><div class="logo-sub">"Life is a differential diagnosis"</div></div>
     <div class="nav">
       <div class="nav-item active" onclick="setNavView('feed',this)"><span class="nav-icon">⚡</span> Live feed<span class="nav-count" id="live-count" style="display:none;"></span></div>
-      <div class="nav-item" onclick="setNavView('mycases',this)"><span class="nav-icon">📋</span> My cases<span class="nav-count" id="count-mycases" style="display:none;"></span></div>
-      <div class="nav-item" onclick="setNavView('responded',this)"><span class="nav-icon">💬</span> Responded<span class="nav-count" id="count-responded" style="display:none;"></span></div>
-      <div class="nav-item" onclick="setNavView('saved',this)"><span class="nav-icon">★</span> Saved cases<span class="nav-count" id="count-saved" style="display:none;"></span></div>
-      <div class="nav-item" onclick="setNavView('following',this)" id="nav-following"><span class="nav-icon">👥</span> Following<span class="nav-count" id="count-following" style="display:none;"></span></div>
+      <div class="nav-item" onclick="setNavView('mycases',this)"><span class="nav-icon">📋</span> My cases<span class="nav-count" id="count-mycases" style="">3</span></div>
+      <div class="nav-item" onclick="setNavView('responded',this)"><span class="nav-icon">💬</span> Responded<span class="nav-count" id="count-responded" style="display:none;">0</span></div>
+      <div class="nav-item" onclick="setNavView('saved',this)"><span class="nav-icon">★</span> Saved cases<span class="nav-count" id="count-saved" style="display:none;">0</span></div>
+      <div class="nav-item" onclick="setNavView('following',this)" id="nav-following"><span class="nav-icon">👥</span> Following<span class="nav-count" id="count-following" style="display:none;">0</span></div>
       <div class="nav-section">Specialty</div>
-      <div class="nav-item" onclick="filterSpec('EP',this)"><span class="nav-icon">〰</span> EP / Rhythm<span class="nav-badge" id="count-EP">0</span></div>
-      <div class="nav-item" onclick="filterSpec('IC',this)"><span class="nav-icon">🫀</span> Interventional<span class="nav-count" id="count-IC">0</span></div>
-      <div class="nav-item" onclick="filterSpec('HF',this)"><span class="nav-icon">💧</span> Heart Failure<span class="nav-count" id="count-HF">0</span></div>
-      <div class="nav-item" onclick="filterSpec('GEN',this)"><span class="nav-icon">🩺</span> General Cards<span class="nav-count" id="count-GEN">0</span></div>
+      <div class="nav-item" onclick="filterSpec('EP',this)"><span class="nav-icon">〰</span> EP / Rhythm<span class="nav-badge" id="count-EP">3</span></div>
+      <div class="nav-item" onclick="filterSpec('IC',this)"><span class="nav-icon">🫀</span> Interventional<span class="nav-count" id="count-IC" style="display: none;">0</span></div>
+      <div class="nav-item" onclick="filterSpec('HF',this)"><span class="nav-icon">💧</span> Heart Failure<span class="nav-count" id="count-HF" style="display: none;">0</span></div>
+      <div class="nav-item" onclick="filterSpec('GEN',this)"><span class="nav-icon">🩺</span> General Cards<span class="nav-count" id="count-GEN" style="display: none;">0</span></div>
       <div class="nav-section" style="margin-top:auto;padding-top:12px;">Help</div>
       <div class="nav-item" onclick="startTour()" style="color:var(--text3);">
         <span class="nav-icon">🗺</span> Take the tour
@@ -1640,9 +1657,9 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
     </div>
     <div class="sidebar-footer">
       <div class="user-row" id="sidebar-user-row" onclick="openProfile()" title="View your profile">
-        <div class="avatar" style="background:linear-gradient(135deg,#3b82f6,#8b5cf6)">?</div>
-        <div class="user-info"><div class="name" id="sidebar-name">Not signed in</div><div class="role" id="sidebar-role">—</div></div>
-        <div id="sidebar-badge"><div class="unverified-badge" onclick="event.stopPropagation();showModal('auth-modal')" style="cursor:pointer;">Sign in</div></div>
+        <div class="avatar" style="background: linear-gradient(135deg, rgb(59, 130, 246), rgb(139, 92, 246)); overflow: hidden;"><img src="https://ebzuytnzbwmzrrspmmqr.supabase.co/storage/v1/object/public/avatars/7ad2c9a4-cb2a-430c-8ac4-89357455e05f/avatar_1775862962839.jpg" alt="Dr. Mark Lee" style="width:100%;height:100%;object-fit:cover;border-radius:50%;"></div>
+        <div class="user-info"><div class="name" id="sidebar-name">Dr. Mark Lee</div><div class="role" id="sidebar-role">EP · Memorial Cardiology Medical Group</div></div>
+        <div id="sidebar-badge"><div class="verified-badge">MD ✓</div></div>
       </div>
     </div>
   </div>
@@ -1692,7 +1709,96 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
       <button class="npi-nudge-btn" onclick="nudgeVerifyNPI()">Verify now</button>
       <button class="npi-nudge-dismiss" onclick="dismissNPINudge()" title="Dismiss">×</button>
     </div>
-    <div class="feed" id="feed"></div>
+    <div class="feed" id="feed"><div class="case-card" style="animation-delay: 0s;">
+      <div class="case-header">
+        <div class="case-avatar author-link" style="background:#3b82f622;color:#3b82f6;overflow:hidden;" onclick="openAuthorProfile(event,'7ad2c9a4-cb2a-430c-8ac4-89357455e05f',{name:'Dr. Mark Lee',spec:'EP · Memorial Cardiology Medical Group',initials:'ML',color:'#3b82f6',npiVerified:true,avatar:'https://ebzuytnzbwmzrrspmmqr.supabase.co/storage/v1/object/public/avatars/7ad2c9a4-cb2a-430c-8ac4-89357455e05f/avatar_1775862962839.jpg'})" title="View profile"><img src="https://ebzuytnzbwmzrrspmmqr.supabase.co/storage/v1/object/public/avatars/7ad2c9a4-cb2a-430c-8ac4-89357455e05f/avatar_1775862962839.jpg" alt="ML" style="width:100%;height:100%;object-fit:cover;border-radius:50%;"></div>
+        <div class="case-meta">
+          <div class="case-author" style="display:flex;align-items:center;gap:5px;">
+            <span class="author-link" onclick="openAuthorProfile(event,'7ad2c9a4-cb2a-430c-8ac4-89357455e05f',{name:'Dr. Mark Lee',spec:'EP · Memorial Cardiology Medical Group',initials:'ML',color:'#3b82f6',npiVerified:true})">Dr. Mark Lee</span>
+            <span class="v-chip verified">MD ✓</span>
+          </div>
+          <div class="case-sub">EP · Memorial Cardiology Medical Group</div>
+        </div>
+        <div class="case-time">4 days ago</div>
+        <button class="bookmark-btn" data-cid="fb3cbcc5-21bf-4af1-bdd1-2665f57e40ed" onclick="toggleSave('fb3cbcc5-21bf-4af1-bdd1-2665f57e40ed',event)" title="Save case">☆</button>
+      </div>
+      <div style="margin-bottom:10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;"><span class="spec-tag tag-ep">EP</span><span class="countdown-chip open">⏱ 2d 8h left</span><span style="font-size:9px;color:var(--text3);background:var(--bg3);border:1px solid var(--border);padding:1px 6px;border-radius:999px;font-weight:500;">⏳ 7d window</span></div>
+      
+      
+      <div class="case-q">32 year old gentlemen with history of paroxysmal atrial fibrillation undergoing pulmonary vein isolation with pulse field ablation. With application of the first pulse in the left superior vein, the patient developed diffuse ST elevations with associated hypotension for 20 minutes. A left heart Cath was performed which did not reveal any air emboli or coronary disease. What is the most likely cause of the transient ST elevations and hypotension?</div>
+      <div class="case-video-wrap" style="overflow:hidden;">
+      <video id="vid-fb3cbcc5-21bf-4af1-bdd1-2665f57e40ed" src="https://ebzuytnzbwmzrrspmmqr.supabase.co/storage/v1/object/public/case-videos/videos/7ad2c9a4-cb2a-430c-8ac4-89357455e05f/1776781754161.mov#t=0.5" muted="" playsinline="" preload="metadata" style="width:100%;max-height:220px;display:block;object-fit:contain;background:#111;clip-path:inset(8.39% 0.00% 20.71% 0.00%);" onloadeddata="this.currentTime=0.5" onmouseenter="this.play()" onmouseleave="this.pause();this.currentTime=0.5"></video>
+      <div class="ecg-overlay">
+        <span class="ecg-tag">🎬 Video</span>
+        <span class="ecg-tag2">De-identified</span>
+      </div>
+      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;">
+        <div style="width:44px;height:44px;border-radius:50%;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;">
+          <div style="width:0;height:0;border-style:solid;border-width:9px 0 9px 18px;border-color:transparent transparent transparent rgba(255,255,255,.9);margin-left:3px;"></div>
+        </div>
+      </div>
+    </div>
+      <div class="consensus">
+        <div class="c-header"><span>Community consensus</span><span class="c-total">0 responses</span></div>
+        <div class="bar-row"><div class="bar-label">Transient air emboli that dissipated prior to LHC</div><div class="bar-track"><div class="bar-fill" style="width:0%;background:#555c72"></div></div><div class="bar-pct" style="color:#555c72">0%</div></div><div class="bar-row"><div class="bar-label">Transient coronary spasm</div><div class="bar-track"><div class="bar-fill" style="width:0%;background:#555c72"></div></div><div class="bar-pct" style="color:#555c72">0%</div></div><div class="bar-row"><div class="bar-label">Pulmonary embolism</div><div class="bar-track"><div class="bar-fill" style="width:0%;background:#555c72"></div></div><div class="bar-pct" style="color:#555c72">0%</div></div><div class="bar-row"><div class="bar-label">Other — with explanation</div><div class="bar-track"><div class="bar-fill" style="width:0%;background:#555c72"></div></div><div class="bar-pct" style="color:#555c72">0%</div></div>
+      </div>
+      <div class="case-footer">
+        <span class="cf-stat">💬 0 notes</span>
+        
+        <button class="respond-btn" onclick="event.stopPropagation();openCaseDetail('fb3cbcc5-21bf-4af1-bdd1-2665f57e40ed')">View &amp; Respond →</button>
+      </div></div><div class="case-card closing" style="animation-delay: 0.05s;">
+      <div class="case-header">
+        <div class="case-avatar author-link" style="background:#3b82f622;color:#3b82f6;overflow:hidden;" onclick="openAuthorProfile(event,'7ad2c9a4-cb2a-430c-8ac4-89357455e05f',{name:'Dr. Mark Lee',spec:'EP · Memorial Cardiology Medical Group',initials:'ML',color:'#3b82f6',npiVerified:true,avatar:'https://ebzuytnzbwmzrrspmmqr.supabase.co/storage/v1/object/public/avatars/7ad2c9a4-cb2a-430c-8ac4-89357455e05f/avatar_1775862962839.jpg'})" title="View profile"><img src="https://ebzuytnzbwmzrrspmmqr.supabase.co/storage/v1/object/public/avatars/7ad2c9a4-cb2a-430c-8ac4-89357455e05f/avatar_1775862962839.jpg" alt="ML" style="width:100%;height:100%;object-fit:cover;border-radius:50%;"></div>
+        <div class="case-meta">
+          <div class="case-author" style="display:flex;align-items:center;gap:5px;">
+            <span class="author-link" onclick="openAuthorProfile(event,'7ad2c9a4-cb2a-430c-8ac4-89357455e05f',{name:'Dr. Mark Lee',spec:'EP · Memorial Cardiology Medical Group',initials:'ML',color:'#3b82f6',npiVerified:true})">Dr. Mark Lee</span>
+            <span class="v-chip verified">MD ✓</span>
+          </div>
+          <div class="case-sub">EP · Memorial Cardiology Medical Group</div>
+        </div>
+        <div class="case-time">5 days ago</div>
+        <button class="bookmark-btn" data-cid="19868359-0cfb-4399-b9f8-df6eb7dbc112" onclick="toggleSave('19868359-0cfb-4399-b9f8-df6eb7dbc112',event)" title="Save case">☆</button>
+      </div>
+      <div style="margin-bottom:10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;"><span class="spec-tag tag-ep">EP</span><span class="countdown-chip closing">⚡ 1d 13h left</span><span style="font-size:9px;color:var(--text3);background:var(--bg3);border:1px solid var(--border);padding:1px 6px;border-radius:999px;font-weight:500;">⏳ 7d window</span></div>
+      
+      
+      <div class="case-q">78 year old gentleman with history of ESRD on hemodialysis and pacemaker induced cardiomyopathy. The patient is admitted for elective, cardiac pre-synchronization upgrade. What does this venogram show?</div>
+      <div class="ecg-thumb"><img src="https://ebzuytnzbwmzrrspmmqr.supabase.co/storage/v1/object/public/ecg-images/ecgs/7ad2c9a4-cb2a-430c-8ac4-89357455e05f/1776711607534.jpg" alt="ECG"><div class="ecg-overlay"><span class="ecg-tag">edited_ecg</span><span class="ecg-tag2">De-identified</span></div></div>
+      <div class="consensus">
+        <div class="c-header"><span>Community consensus</span><span class="c-total">0 responses</span></div>
+        <div class="bar-row"><div class="bar-label">Patent SVC with collaterals</div><div class="bar-track"><div class="bar-fill" style="width:0%;background:#555c72"></div></div><div class="bar-pct" style="color:#555c72">0%</div></div><div class="bar-row"><div class="bar-label">Occluded proximal SVC with collaterals</div><div class="bar-track"><div class="bar-fill" style="width:0%;background:#555c72"></div></div><div class="bar-pct" style="color:#555c72">0%</div></div><div class="bar-row"><div class="bar-label">Subclavian artery puncture</div><div class="bar-track"><div class="bar-fill" style="width:0%;background:#555c72"></div></div><div class="bar-pct" style="color:#555c72">0%</div></div><div class="bar-row"><div class="bar-label">Other — with explanation</div><div class="bar-track"><div class="bar-fill" style="width:0%;background:#555c72"></div></div><div class="bar-pct" style="color:#555c72">0%</div></div>
+      </div>
+      <div class="case-footer">
+        <span class="cf-stat">💬 0 notes</span>
+        
+        <button class="respond-btn" onclick="event.stopPropagation();openCaseDetail('19868359-0cfb-4399-b9f8-df6eb7dbc112')">View &amp; Respond →</button>
+      </div></div><div class="case-card closing" style="animation-delay: 0.1s;">
+      <div class="case-header">
+        <div class="case-avatar author-link" style="background:#3b82f622;color:#3b82f6;overflow:hidden;" onclick="openAuthorProfile(event,'7ad2c9a4-cb2a-430c-8ac4-89357455e05f',{name:'Dr. Mark Lee',spec:'EP · Memorial Cardiology Medical Group',initials:'ML',color:'#3b82f6',npiVerified:true,avatar:'https://ebzuytnzbwmzrrspmmqr.supabase.co/storage/v1/object/public/avatars/7ad2c9a4-cb2a-430c-8ac4-89357455e05f/avatar_1775862962839.jpg'})" title="View profile"><img src="https://ebzuytnzbwmzrrspmmqr.supabase.co/storage/v1/object/public/avatars/7ad2c9a4-cb2a-430c-8ac4-89357455e05f/avatar_1775862962839.jpg" alt="ML" style="width:100%;height:100%;object-fit:cover;border-radius:50%;"></div>
+        <div class="case-meta">
+          <div class="case-author" style="display:flex;align-items:center;gap:5px;">
+            <span class="author-link" onclick="openAuthorProfile(event,'7ad2c9a4-cb2a-430c-8ac4-89357455e05f',{name:'Dr. Mark Lee',spec:'EP · Memorial Cardiology Medical Group',initials:'ML',color:'#3b82f6',npiVerified:true})">Dr. Mark Lee</span>
+            <span class="v-chip verified">MD ✓</span>
+          </div>
+          <div class="case-sub">EP · Memorial Cardiology Medical Group</div>
+        </div>
+        <div class="case-time">5 days ago</div>
+        <button class="bookmark-btn" data-cid="1658cfe8-b79b-40ca-ba6e-f60f52e51392" onclick="toggleSave('1658cfe8-b79b-40ca-ba6e-f60f52e51392',event)" title="Save case">☆</button>
+      </div>
+      <div style="margin-bottom:10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;"><span class="spec-tag tag-ep">EP</span><span class="countdown-chip closing">⚡ 1d 11h left</span><span style="font-size:9px;color:var(--text3);background:var(--bg3);border:1px solid var(--border);padding:1px 6px;border-radius:999px;font-weight:500;">⏳ 7d window</span></div>
+      
+      
+      <div class="case-q">68 year old gentleman with history of ischemic cardiomyopathy with EF &lt; 20% and has a single chamber ICD. He is admitted to hospital with acute systolic CHF. What is this wide complex finding on telemetry?</div>
+      <div class="ecg-thumb"><img src="https://ebzuytnzbwmzrrspmmqr.supabase.co/storage/v1/object/public/ecg-images/ecgs/7ad2c9a4-cb2a-430c-8ac4-89357455e05f/1776706632396.jpg" alt="ECG"><div class="ecg-overlay"><span class="ecg-tag">edited_ecg</span><span class="ecg-tag2">De-identified</span></div></div>
+      <div class="consensus">
+        <div class="c-header"><span>Community consensus</span><span class="c-total">0 responses</span></div>
+        <div class="bar-row"><div class="bar-label">Nonsustained ventricular tachycardia</div><div class="bar-track"><div class="bar-fill" style="width:0%;background:#555c72"></div></div><div class="bar-pct" style="color:#555c72">0%</div></div><div class="bar-row"><div class="bar-label">SVT with aberrancy</div><div class="bar-track"><div class="bar-fill" style="width:0%;background:#555c72"></div></div><div class="bar-pct" style="color:#555c72">0%</div></div><div class="bar-row"><div class="bar-label">AF with aberrancy</div><div class="bar-track"><div class="bar-fill" style="width:0%;background:#555c72"></div></div><div class="bar-pct" style="color:#555c72">0%</div></div><div class="bar-row"><div class="bar-label">Other — with explanation</div><div class="bar-track"><div class="bar-fill" style="width:0%;background:#555c72"></div></div><div class="bar-pct" style="color:#555c72">0%</div></div>
+      </div>
+      <div class="case-footer">
+        <span class="cf-stat">💬 0 notes</span>
+        
+        <button class="respond-btn" onclick="event.stopPropagation();openCaseDetail('1658cfe8-b79b-40ca-ba6e-f60f52e51392')">View &amp; Respond →</button>
+      </div></div></div>
   </div>
 
   <div class="right-panel" id="right-panel-desktop">
@@ -1705,18 +1811,18 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
       <div class="rp-body" id="panel-stats">
         <div class="section-label" style="margin-top:0;">Your stats</div>
         <div class="stats-grid">
-          <div class="stat-box"><div class="stat-val" id="s-cases">0</div><div class="stat-lbl">Cases posted</div></div>
+          <div class="stat-box"><div class="stat-val" id="s-cases">3</div><div class="stat-lbl">Cases posted</div></div>
           <div class="stat-box"><div class="stat-val" id="s-resp">0</div><div class="stat-lbl">Responses given</div></div>
           <div class="stat-box"><div class="stat-val" id="s-saved">0</div><div class="stat-lbl">Cases saved</div></div>
-          <div class="stat-box" title="Live count of verified physicians currently on the platform"><div class="stat-val" id="s-online">—</div><div class="stat-lbl">Physicians online</div></div>
+          <div class="stat-box" title="Live count of verified physicians currently on the platform"><div class="stat-val" id="s-online">1</div><div class="stat-lbl">Physicians online</div></div>
         </div>
         <div id="personal-stats-section"></div>
         <div class="section-label" style="margin-top:16px;">Community leaderboard</div>
-        <div id="leaderboard"></div>
+        <div id="leaderboard"><div style="font-size:12px;color:var(--text3);padding:12px 0;text-align:center;">No responses yet — be the first to contribute.</div></div>
         <div class="section-label" style="margin-top:16px;">Top diagnoses this week</div>
-        <div id="top-dx"></div>
+        <div id="top-dx"><div class="topdx-item"><div class="topdx-label">Monomorphic VT</div><div class="topdx-spec">EP</div><div class="topdx-count">41×</div></div><div class="topdx-item"><div class="topdx-label">STEMI equivalent</div><div class="topdx-spec">IC</div><div class="topdx-count">28×</div></div><div class="topdx-item"><div class="topdx-label">AF in HFrEF</div><div class="topdx-spec">HF</div><div class="topdx-count">19×</div></div><div class="topdx-item"><div class="topdx-label">Complete heart block</div><div class="topdx-spec">EP</div><div class="topdx-count">16×</div></div><div class="topdx-item"><div class="topdx-label">Idiopathic VT (RVOT)</div><div class="topdx-spec">EP</div><div class="topdx-count">12×</div></div></div>
         <div class="section-label" style="margin-top:16px;">Recent activity</div>
-        <div id="recent-activity"></div>
+        <div id="recent-activity"><div style="font-size:12px;color:var(--text3);padding:12px 0;">No activity yet. Post a case to get the community going.</div></div>
       </div>
 
       <!-- Hidden panels kept for JS compatibility (respond panel elements still used by selectCase) -->
@@ -1753,7 +1859,7 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
   </div>
 </nav>
 
-<div class="toast" id="toast"><div class="toast-dot" id="toast-dot"></div><span id="toast-msg"></span></div>
+<div class="toast" id="toast"><div class="toast-dot error" id="toast-dot"></div><span id="toast-msg">Add at least 2 diagnosis options</span></div>
 
 <style>
 /* ══════════════════════════════════════════════
@@ -2043,7 +2149,7 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
 </style>
 
 <!-- POST CASE MODAL -->
-<div class="post-modal-overlay" id="post-modal-overlay">
+<div class="post-modal-overlay open" id="post-modal-overlay">
   <div class="post-modal">
     <div class="post-modal-header">
       <div class="post-modal-title"><span class="logo-dot" style="width:10px;height:10px;"></span>Post a case</div>
@@ -2074,8 +2180,8 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
         </div>
         <div id="phi-scan-status" style="text-align:center;margin-top:4px;"></div>
         <img id="upload-preview" class="upload-preview" alt="ECG preview">
-        <div id="video-preview-wrap" style="display:none;overflow:hidden;border-radius:var(--r);margin-top:8px;background:#000;position:relative;">
-          <video id="video-preview" class="video-preview" controls muted playsinline style="display:block;width:100%;margin:0;border-radius:0;"></video>
+        <div id="video-preview-wrap" style="display: block; overflow: hidden; border-radius: var(--r); margin-top: 8px; background: rgb(0, 0, 0); position: relative;">
+          <video id="video-preview" class="video-preview" controls="" muted="" playsinline="" style="display:block;width:100%;margin:0;border-radius:0;" src="blob:https://b00ns.github.io/9a0cce49-82ef-4abd-8bf0-acc072f22efd"></video>
         </div>
         <div class="phi-video-warning" id="phi-video-warning">
           ⚠️ <strong>Video PHI reminder:</strong> Cath lab and echo systems often embed patient name, DOB, and MRN in the video filename or burned-in overlay. Before uploading, confirm the filename contains no patient identifiers and that any on-screen patient info has been cropped or redacted.
@@ -2142,7 +2248,7 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
     </div>
     <div class="post-modal-footer">
       <button class="post-modal-cancel" onclick="closePostModal()">Cancel</button>
-      <button class="submit-case-btn" onclick="submitCase()" id="submit-case-btn">Submit to community →</button>
+      <button class="submit-case-btn" onclick="submitCase()" id="submit-case-btn" disabled="">Posting…</button>
     </div>
   </div>
 </div>
@@ -2218,7 +2324,7 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
           </select>
           <textarea class="cd-resolve-note-input" id="cd-resolve-note" rows="3" placeholder="Teaching note / explanation (optional) — what was the final answer and why?"></textarea>
           <button class="cd-resolve-btn" id="cd-resolve-btn" onclick="submitCaseResolution()">
-            <span>✓</span> Resolve & reveal answer
+            <span>✓</span> Resolve &amp; reveal answer
           </button>
         </div>
 
@@ -2576,11 +2682,6 @@ function openMediaEditor(){
       _cropCanvas=null;_cropCtx=null;
       meRenderCropUI();
       if(!window._meCropWired){window._meCropWired=true;meWireCropOverlay();}
-      // Snapshot dimensions for saveMediaEdit (let vars can become stale on mobile)
-      window._meVideoCanvasW=meCanvasW;
-      window._meVideoCanvasH=meCanvasH;
-      // Snapshot initial meCrop too (before any drag)
-      window._meCropSnapshot={...meCrop};
     };
 
     const onMeta=()=>{
@@ -2724,8 +2825,6 @@ function meHandlePositions(){
 }
 
 function meRenderCropUI(){
-  // Keep window snapshot in sync — reliable across async boundaries
-  window._meCropSnapshot={...meCrop};
   if(!_cropCanvas){
     // Create canvas overlay on top of the image canvas, same size
     _cropCanvas=document.createElement('canvas');
@@ -2864,8 +2963,6 @@ function meCropMove(clientX,clientY){
     if(handle.includes('n')){const ny=Math.max(0,Math.min(o.y+o.h-MIN,o.y+dy));h=o.y+o.h-ny;y=ny;}
   }
   meCrop={x:Math.round(x),y:Math.round(y),w:Math.round(w),h:Math.round(h)};
-  // Keep window snapshot in sync so saveMediaEdit can read it reliably
-  window._meCropSnapshot={...meCrop};
   if(!_meRafPending){
     _meRafPending=true;
     requestAnimationFrame(()=>{_meRafPending=false;meRenderCropUI();});
@@ -2979,15 +3076,11 @@ function closeMediaEditor(){
 
 async function saveMediaEdit(){
   if(meIsVideo){
-    // VIDEO: save crop as percentages — use window snapshots for reliability on mobile
-    // (let vars meCanvasW/H can be stale if video metadata loading was slow)
-    const _cw=window._meVideoCanvasW||meCanvasW;
-    const _ch=window._meVideoCanvasH||meCanvasH;
-    const _crop=window._meCropSnapshot||meCrop;
-    const cropTop=_ch>0?(_crop.y/_ch*100):0;
-    const cropLeft=_cw>0?(_crop.x/_cw*100):0;
-    const cropBottom=_ch>0?((_ch-_crop.y-_crop.h)/_ch*100):0;
-    const cropRight=_cw>0?((_cw-_crop.x-_crop.w)/_cw*100):0;
+    // VIDEO: save crop as percentages — applied via CSS on playback (whole video cropped, not just a frame)
+    const cropTop=meCanvasH>0?(meCrop.y/meCanvasH*100):0;
+    const cropLeft=meCanvasW>0?(meCrop.x/meCanvasW*100):0;
+    const cropBottom=meCanvasH>0?((meCanvasH-meCrop.y-meCrop.h)/meCanvasH*100):0;
+    const cropRight=meCanvasW>0?((meCanvasW-meCrop.x-meCrop.w)/meCanvasW*100):0;
     const cropData={top:+cropTop.toFixed(2),left:+cropLeft.toFixed(2),bottom:+cropBottom.toFixed(2),right:+cropRight.toFixed(2)};
     window._pendingVideoCrop=cropData;
     window._currentVideoCrop=cropData;
@@ -3027,10 +3120,6 @@ async function saveMediaEdit(){
       vidPrev.style.objectFit='fill';
       vidPrev.style.transform=`translate(${offX}%,${offY}%) scale(${scaleX.toFixed(4)},${scaleY.toFixed(4)})`;
       vidPrev.style.transformOrigin='top left';
-      // Seek to show a frame (fixes black screen on iOS)
-      if(vidPrev.readyState===0&&vidPrev.src){vidPrev.load();}
-      if(vidPrev.duration>0){vidPrev.currentTime=Math.min(0.5,vidPrev.duration*0.1);}
-      else{vidPrev.onloadedmetadata=()=>{vidPrev.currentTime=Math.min(0.5,vidPrev.duration*0.1);};}
       showToast('✓ Crop applied — preview updated');
       setScanBadge('✓ Video cropped — crop will apply on playback','override');
     } else if(!hasCrop){
@@ -3593,15 +3682,13 @@ async function handleUpload(input){
     if(editBarV)editBarV.style.display='block';
 
     uploadedImageDataUrl=null;
-    // Upload in background — don't block the UI on iOS
-    // The blob URL is already available for editing/posting
-    uploadToStorage(rawFile).then(()=>{
-      if(uploadedVideoUrl||window._uploadedVideoBlobUrl){
-        zone.classList.remove('uploading','phi-error');
-        zone.classList.add('has-file');
-        document.getElementById('uz-icon').textContent='🎬';
-      }
-    }).catch(e=>console.warn('Video upload error:',e));
+    await uploadToStorage(rawFile);
+    // Re-confirm success state in case uploadToStorage changed zone
+    if(uploadedVideoUrl||window._uploadedVideoBlobUrl){
+      zone.classList.remove('uploading','phi-error');
+      zone.classList.add('has-file');
+      document.getElementById('uz-icon').textContent='🎬';
+    }
 
   } else {
     // Image/PDF flow — unchanged
@@ -3939,6 +4026,7 @@ function renderECGThumb(c){
           <div style="width:0;height:0;border-style:solid;border-width:9px 0 9px 18px;border-color:transparent transparent transparent rgba(255,255,255,.9);margin-left:3px;"></div>
         </div>
       </div>
+      <button onclick="event.stopPropagation();expandVideo('${vid}')" style="position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.25);border-radius:6px;color:rgba(255,255,255,.9);font-size:11px;padding:4px 10px;cursor:pointer;font-family:var(--font-sans);pointer-events:all;display:flex;align-items:center;gap:4px;backdrop-filter:blur(4px);">⛶ Zoom</button>
     </div>`;
   }
   if(c.ecgImageUrl)return`<div class="ecg-thumb"><img src="${c.ecgImageUrl}" alt="ECG"><div class="ecg-overlay"><span class="ecg-tag">${c.ecgType||'ECG'}</span><span class="ecg-tag2">De-identified</span></div></div>`;
@@ -4315,7 +4403,10 @@ async function submitCase(){
     };
 
     if(supabaseClient&&currentUser){
-      const saved=await persistCase(newCase);
+      const saved=await Promise.race([
+        persistCase(newCase),
+        new Promise((_,rej)=>setTimeout(()=>rej(new Error('Post timed out — check your connection and try again')),15000))
+      ]);
       if(saved){
         newCase.id=saved.id;
       } else {
@@ -4513,6 +4604,11 @@ function switchRPTab(tab){
 function openPostModal(){
   document.getElementById('post-modal-overlay').classList.add('open');
   document.body.style.overflow='hidden';
+  // Always hide video preview on fresh open — prevents stale state from previous session
+  const _vpW=document.getElementById('video-preview-wrap');
+  if(_vpW)_vpW.style.display='none';
+  const _vp=document.getElementById('video-preview');
+  if(_vp){_vp.src='';_vp.style.transform='';_vp.style.objectFit='';}
   // Show NPI panel if not verified
   const npiPanel=document.getElementById('npi-panel');
   if(npiPanel) npiPanel.style.display=(currentProfile&&!currentProfile.npi_verified)?'block':'none';
@@ -6702,5 +6798,6 @@ function toggleTheme(){
     </div>
   </div>
 </div>
-</body>
-</html>
+
+
+<div id="claude-agent-glow-border" style="position: fixed; inset: 0px; pointer-events: none; z-index: 2147483646; opacity: 1; transition: opacity 0.3s ease-in-out; animation: 2s ease-in-out 0s infinite normal none running claude-pulse; box-shadow: rgba(217, 119, 87, 0.5) 0px 0px 10px inset, rgba(217, 119, 87, 0.3) 0px 0px 20px inset, rgba(217, 119, 87, 0.1) 0px 0px 30px inset;"></div></body></html>
