@@ -4604,6 +4604,9 @@ function switchRPTab(tab){
 function openPostModal(){
   document.getElementById('post-modal-overlay').classList.add('open');
   document.body.style.overflow='hidden';
+  // Always reset submit button on open — belt and suspenders against stuck state
+  const _sb=document.getElementById('submit-case-btn');
+  if(_sb){_sb.disabled=false;_sb.textContent='Submit to community →';}
   // Always hide video preview on fresh open — prevents stale state from previous session
   const _vpW=document.getElementById('video-preview-wrap');
   if(_vpW)_vpW.style.display='none';
@@ -4617,6 +4620,9 @@ function closePostModal(){
   document.getElementById('post-modal-overlay').classList.remove('open');
   if(!document.getElementById('case-detail-overlay').classList.contains('open'))
     document.body.style.overflow='';
+  // Always reset submit button — prevents stuck "Posting..." if previous attempt hung
+  const submitBtn=document.getElementById('submit-case-btn');
+  if(submitBtn){submitBtn.disabled=false;submitBtn.textContent='Submit to community →';}
   // Reset edit bar and stale media state so next open is clean
   const editBar=document.getElementById('media-edit-bar');
   if(editBar)editBar.style.display='none';
