@@ -2451,46 +2451,46 @@ function switchAuthTab(tab){
   document.getElementById('tab-signin').classList.toggle('active',tab==='signin');
   document.getElementById('tab-signup').classList.toggle('active',tab==='signup');
 }
-// ---- Password Reset ----
+// ---- Password Reset Functions ----
 function showForgotPassword(){
-  ['signin-form','signup-form','reset-form'].forEach(id=>{ const el=document.getElementById(id); if(el)el.style.display='none'; });
+  ['signin-form','signup-form','reset-form'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
   document.getElementById('forgot-form').style.display='block';
-  const tabs=document.querySelector('.modal-tabs'); if(tabs)tabs.style.display='none';
-  const tag=document.querySelector('.modal-tagline'); if(tag)tag.textContent='Reset your password';
-  const fp=document.getElementById('fp-email'); if(fp)fp.value='';
-  const err=document.getElementById('fp-error'); if(err)err.textContent='';
-  const suc=document.getElementById('fp-success'); if(suc){suc.style.display='none';suc.textContent='';}
+  const tabs=document.querySelector('.modal-tabs');if(tabs)tabs.style.display='none';
+  const tag=document.querySelector('.modal-tagline');if(tag)tag.textContent='Reset your password';
+  const fp=document.getElementById('fp-email');if(fp)fp.value='';
+  const err=document.getElementById('fp-error');if(err)err.textContent='';
+  const suc=document.getElementById('fp-success');if(suc){suc.style.display='none';suc.textContent='';}
 }
 function showSignInForm(){
-  ['forgot-form','reset-form','signup-form'].forEach(id=>{ const el=document.getElementById(id); if(el)el.style.display='none'; });
+  ['forgot-form','reset-form','signup-form'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
   document.getElementById('signin-form').style.display='block';
-  const tabs=document.querySelector('.modal-tabs'); if(tabs)tabs.style.display='flex';
-  const tag=document.querySelector('.modal-tagline'); if(tag)tag.textContent='Physician-only curbside consult platform';
-  const t1=document.getElementById('tab-signin'); if(t1)t1.classList.add('active');
-  const t2=document.getElementById('tab-signup'); if(t2)t2.classList.remove('active');
+  const tabs=document.querySelector('.modal-tabs');if(tabs)tabs.style.display='flex';
+  const tag=document.querySelector('.modal-tagline');if(tag)tag.textContent='Physician-only curbside consult platform';
+  const t1=document.getElementById('tab-signin');if(t1)t1.classList.add('active');
+  const t2=document.getElementById('tab-signup');if(t2)t2.classList.remove('active');
 }
 function showResetForm(){
-  ['signin-form','signup-form','forgot-form'].forEach(id=>{ const el=document.getElementById(id); if(el)el.style.display='none'; });
+  ['signin-form','signup-form','forgot-form'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
   document.getElementById('reset-form').style.display='block';
-  const tabs=document.querySelector('.modal-tabs'); if(tabs)tabs.style.display='none';
-  const tag=document.querySelector('.modal-tagline'); if(tag)tag.textContent='Set a new password';
-  const rp=document.getElementById('rp-password'); if(rp)rp.value='';
-  const rc=document.getElementById('rp-confirm'); if(rc)rc.value='';
-  const err=document.getElementById('rp-error'); if(err)err.textContent='';
-  setTimeout(()=>{ const rp=document.getElementById('rp-password'); if(rp)rp.focus(); }, 100);
+  const tabs=document.querySelector('.modal-tabs');if(tabs)tabs.style.display='none';
+  const tag=document.querySelector('.modal-tagline');if(tag)tag.textContent='Set a new password';
+  const rp=document.getElementById('rp-password');if(rp)rp.value='';
+  const rc=document.getElementById('rp-confirm');if(rc)rc.value='';
+  const err=document.getElementById('rp-error');if(err)err.textContent='';
+  setTimeout(()=>{const rp=document.getElementById('rp-password');if(rp)rp.focus();},100);
 }
 async function sendPasswordReset(){
   const email=document.getElementById('fp-email').value.trim();
   if(!email)return showAuthError('fp','Please enter your email address');
-  const btn=document.getElementById('fp-btn'); btn.disabled=true; btn.textContent='Sending…';
-  const {error}=await supabaseClient.auth.resetPasswordForEmail(email,{
+  const btn=document.getElementById('fp-btn');btn.disabled=true;btn.textContent='Sending…';
+  const{error}=await supabaseClient.auth.resetPasswordForEmail(email,{
     redirectTo:'https://b00ns.github.io/curbsidedx/'
   });
-  btn.disabled=false; btn.textContent='Send reset link';
-  if(error){ showAuthError('fp',error.message); }
+  btn.disabled=false;btn.textContent='Send reset link';
+  if(error){showAuthError('fp',error.message);}
   else{
     const suc=document.getElementById('fp-success');
-    suc.textContent='Reset link sent! Check your email and click the link within 1 hour.';
+    suc.textContent='Reset link sent! Check your email and click within 1 hour.';
     suc.style.display='block';
     document.getElementById('fp-error').textContent='';
   }
@@ -2500,15 +2500,11 @@ async function updatePassword(){
   const confirm=document.getElementById('rp-confirm').value;
   if(!pw||pw.length<8)return showAuthError('rp','Password must be at least 8 characters');
   if(pw!==confirm)return showAuthError('rp','Passwords do not match');
-  const btn=document.getElementById('rp-btn'); btn.disabled=true; btn.textContent='Updating…';
-  const {error}=await supabaseClient.auth.updateUser({password:pw});
-  btn.disabled=false; btn.textContent='Set new password';
-  if(error){ showAuthError('rp',error.message); }
-  else{
-    showToast('Password updated successfully!');
-    hideModal('auth-modal');
-    showSignInForm();
-  }
+  const btn=document.getElementById('rp-btn');btn.disabled=true;btn.textContent='Updating…';
+  const{error}=await supabaseClient.auth.updateUser({password:pw});
+  btn.disabled=false;btn.textContent='Set new password';
+  if(error){showAuthError('rp',error.message);}
+  else{showToast('Password updated successfully!');hideModal('auth-modal');showSignInForm();}
 }
 // ---- End Password Reset ----
 
@@ -6719,11 +6715,31 @@ function toggleTheme(){
     return;
   }
 
+  // ---- Recovery link detection ----
+  // Supabase puts #access_token=...&type=recovery in the URL
+  // We must check this BEFORE getSession() which would consume the token
+  const hashParams = new URLSearchParams(window.location.hash.replace('#',''));
+  const isRecoveryFlow = hashParams.get('type') === 'recovery';
+
+  if(isRecoveryFlow){
+    // Let Supabase process the hash token, then show reset form
+    // onAuthStateChange will fire PASSWORD_RECOVERY once the token is exchanged
+    renderFeed();
+    requestAnimationFrame(()=>{
+      showModal('auth-modal');
+      showResetForm();
+    });
+    // Clear hash from URL so it doesn't re-trigger on reload
+    history.replaceState(null, '', window.location.pathname);
+    // onAuthStateChange below will handle the rest
+  }
+  // ---- End recovery detection ----
+
   // Check session first — only show auth modal if genuinely not logged in
   let existingSession = null;
   try{
     const{data:{session},error}=await supabaseClient.auth.getSession();
-    if(!error && session && session.user) existingSession = session;
+    if(!error && session && session.user && !isRecoveryFlow) existingSession = session;
   }catch(e){
     console.error('Session check failed:',e);
   }
@@ -6764,10 +6780,7 @@ function toggleTheme(){
 
   if(supabaseClient){
     supabaseClient.auth.onAuthStateChange(async(event,session)=>{
-      if(event==='PASSWORD_RECOVERY'){
-        showModal('auth-modal');
-        showResetForm();
-      } else if(event==='SIGNED_IN'&&session){
+      if(event==='SIGNED_IN'&&session){
         currentUser=session.user;
         await fetchProfile();
         updateUserUI();
