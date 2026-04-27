@@ -2509,10 +2509,18 @@ async function updatePassword(){
       return showAuthError('rp','Session expired. Please request a new reset link.');
     }
   }
-  const{error}=await supabaseClient.auth.updateUser({password:pw});
+  const{data, error}=await supabaseClient.auth.updateUser({password:pw});
   btn.disabled=false;btn.textContent='Set new password';
   if(error){showAuthError('rp',error.message);}
-  else{showToast('Password updated successfully!');hideModal('auth-modal');showSignInForm();}
+  else{
+    window._inPasswordReset = false;
+    window._recoverySessionReady = false;
+    showToast('Password updated! Please sign in with your new password.');
+    // Sign out so they log in fresh with new password
+    await supabaseClient.auth.signOut();
+    hideModal('auth-modal');
+    showSignInForm();
+  }
 }
 // ---- End Password Reset ----
 
@@ -6771,9 +6779,10 @@ function toggleTheme(){
     supabaseClient.auth.onAuthStateChange(async(event,session)=>{
       if(event==='PASSWORD_RECOVERY'){
         window._recoverySessionReady = true;
+        window._inPasswordReset = true;
         showModal('auth-modal');
         showResetForm();
-      } else if(event==='SIGNED_IN'&&session){
+      } else if(event==='SIGNED_IN'&&session&&!window._inPasswordReset){
         currentUser=session.user;
         await fetchProfile();
         updateUserUI();
