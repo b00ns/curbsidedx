@@ -2,18 +2,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>CurbsideDx — Physician Curbside Community</title>
-
-<!-- PWA -->
-<link rel="manifest" href="manifest.json">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="CurbsideDx">
-<link rel="apple-touch-icon" href="icons/icon-192.png">
-<link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152.png">
-<link rel="apple-touch-icon" sizes="144x144" href="icons/icon-144.png">
-<link rel="apple-touch-icon" sizes="128x128" href="icons/icon-128.png">
-<meta name="theme-color" content="#0d0f14">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&amp;family=DM+Sans:wght@300;400;500;600&amp;display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -1512,7 +1500,32 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
       <div class="form-group"><label class="form-label">Password</label><input class="form-input" id="si-password" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')signIn()"></div>
       <div class="form-error" id="si-error"></div>
       <button class="auth-btn" onclick="signIn()" id="si-btn">Sign in</button>
+      <div style="text-align:center;margin-top:10px;"><span style="font-size:11px;color:var(--accent);cursor:pointer;" onclick="showForgotPassword()">Forgot password?</span></div>
     </div>
+
+    <!-- Forgot Password Form -->
+    <div id="forgot-form" style="display:none;">
+      <div style="text-align:center;margin-bottom:16px;">
+        <div style="font-size:13px;color:var(--text2);line-height:1.5;">Enter your email and we'll send you a password reset link.</div>
+      </div>
+      <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="fp-email" type="email" placeholder="you@hospital.edu" onkeydown="if(event.key==='Enter')sendPasswordReset()"></div>
+      <div class="form-error" id="fp-error"></div>
+      <div class="form-success" id="fp-success" style="display:none;color:var(--green);font-size:12px;margin-bottom:10px;text-align:center;"></div>
+      <button class="auth-btn" onclick="sendPasswordReset()" id="fp-btn">Send reset link</button>
+      <div style="text-align:center;margin-top:10px;"><span style="font-size:11px;color:var(--accent);cursor:pointer;" onclick="showSignInForm()">← Back to sign in</span></div>
+    </div>
+
+    <!-- Reset Password Form (shown after clicking recovery email link) -->
+    <div id="reset-form" style="display:none;">
+      <div style="text-align:center;margin-bottom:16px;">
+        <div style="font-size:13px;color:var(--text2);line-height:1.5;">Enter your new password below.</div>
+      </div>
+      <div class="form-group"><label class="form-label">New Password</label><input class="form-input" id="rp-password" type="password" placeholder="Min 8 characters" onkeydown="if(event.key==='Enter')updatePassword()"></div>
+      <div class="form-group"><label class="form-label">Confirm Password</label><input class="form-input" id="rp-confirm" type="password" placeholder="Repeat password" onkeydown="if(event.key==='Enter')updatePassword()"></div>
+      <div class="form-error" id="rp-error"></div>
+      <button class="auth-btn" onclick="updatePassword()" id="rp-btn">Set new password</button>
+    </div>
+
     <div id="signup-form" style="display:none;">
       <div class="form-row">
         <div class="form-group"><label class="form-label">First name</label><input class="form-input" id="su-first" type="text" placeholder="Mehdi"></div>
@@ -2442,6 +2455,72 @@ function switchAuthTab(tab){
   document.getElementById('tab-signin').classList.toggle('active',tab==='signin');
   document.getElementById('tab-signup').classList.toggle('active',tab==='signup');
 }
+// --- Password Reset Functions ---
+function showForgotPassword(){
+  document.getElementById('signin-form').style.display='none';
+  document.getElementById('signup-form').style.display='none';
+  document.getElementById('reset-form').style.display='none';
+  document.getElementById('forgot-form').style.display='block';
+  document.querySelector('.modal-tabs').style.display='none';
+  document.querySelector('.modal-tagline').textContent='Reset your password';
+  const fp=document.getElementById('fp-email');if(fp)fp.value='';
+  const err=document.getElementById('fp-error');if(err)err.textContent='';
+  const suc=document.getElementById('fp-success');if(suc){suc.style.display='none';suc.textContent='';}
+}
+function showSignInForm(){
+  document.getElementById('forgot-form').style.display='none';
+  document.getElementById('reset-form').style.display='none';
+  document.getElementById('signup-form').style.display='none';
+  document.getElementById('signin-form').style.display='block';
+  document.querySelector('.modal-tabs').style.display='flex';
+  document.querySelector('.modal-tagline').textContent='Physician-only curbside consult platform';
+  document.getElementById('tab-signin').classList.add('active');
+  document.getElementById('tab-signup').classList.remove('active');
+}
+function showResetForm(){
+  document.getElementById('signin-form').style.display='none';
+  document.getElementById('signup-form').style.display='none';
+  document.getElementById('forgot-form').style.display='none';
+  document.getElementById('reset-form').style.display='block';
+  document.querySelector('.modal-tabs').style.display='none';
+  document.querySelector('.modal-tagline').textContent='Set a new password';
+  const rp=document.getElementById('rp-password');if(rp)rp.value='';
+  const rc=document.getElementById('rp-confirm');if(rc)rc.value='';
+  const err=document.getElementById('rp-error');if(err)err.textContent='';
+}
+async function sendPasswordReset(){
+  const email=document.getElementById('fp-email').value.trim();
+  if(!email)return showAuthError('fp','Please enter your email address');
+  const btn=document.getElementById('fp-btn');btn.disabled=true;btn.textContent='Sending…';
+  const {error}=await supabaseClient.auth.resetPasswordForEmail(email,{
+    redirectTo: window.location.origin+window.location.pathname
+  });
+  btn.disabled=false;btn.textContent='Send reset link';
+  if(error){showAuthError('fp',error.message);}
+  else{
+    const suc=document.getElementById('fp-success');
+    suc.textContent='Reset link sent! Check your email (including spam folder).';
+    suc.style.display='block';
+    document.getElementById('fp-error').textContent='';
+  }
+}
+async function updatePassword(){
+  const pw=document.getElementById('rp-password').value;
+  const confirm=document.getElementById('rp-confirm').value;
+  if(!pw||pw.length<8)return showAuthError('rp','Password must be at least 8 characters');
+  if(pw!==confirm)return showAuthError('rp','Passwords do not match');
+  const btn=document.getElementById('rp-btn');btn.disabled=true;btn.textContent='Updating…';
+  const {error}=await supabaseClient.auth.updateUser({password:pw});
+  btn.disabled=false;btn.textContent='Set new password';
+  if(error){showAuthError('rp',error.message);}
+  else{
+    showToast('Password updated! You are now signed in.');
+    showSignInForm();
+    hideModal('auth-modal');
+  }
+}
+// --- End Password Reset Functions ---
+
 async function signIn(){
   const email=document.getElementById('si-email').value.trim();
   const password=document.getElementById('si-password').value;
@@ -6694,7 +6773,11 @@ function toggleTheme(){
 
   if(supabaseClient){
     supabaseClient.auth.onAuthStateChange(async(event,session)=>{
-      if(event==='SIGNED_IN'&&session){
+      if(event==='PASSWORD_RECOVERY'){
+        // User clicked the recovery link — show reset password form
+        showModal('auth-modal');
+        showResetForm();
+      } else if(event==='SIGNED_IN'&&session){
         currentUser=session.user;
         await fetchProfile();
         updateUserUI();
@@ -6831,16 +6914,5 @@ function toggleTheme(){
   </div>
 </div>
 
-
-<!-- PWA Service Worker Registration -->
-<script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/curbsidedx/sw.js')
-      .then(reg => console.log('[PWA] Service worker registered:', reg.scope))
-      .catch(err => console.warn('[PWA] Service worker registration failed:', err));
-  });
-}
-</script>
 
 <div id="claude-agent-glow-border" style="position: fixed; inset: 0px; pointer-events: none; z-index: 2147483646; opacity: 1; transition: opacity 0.3s ease-in-out; animation: 2s ease-in-out 0s infinite normal none running claude-pulse; box-shadow: rgba(217, 119, 87, 0.5) 0px 0px 10px inset, rgba(217, 119, 87, 0.3) 0px 0px 20px inset, rgba(217, 119, 87, 0.1) 0px 0px 30px inset;"></div></body></html>
