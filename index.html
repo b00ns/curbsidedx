@@ -2398,7 +2398,7 @@ const SUPABASE_URL='https://ebzuytnzbwmzrrspmmqr.supabase.co';
 // It starts with "eyJ..." — NOT the "sb_publishable_" format
 const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVienV5dG56YndtenJyc3BtbXFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5ODU5MzIsImV4cCI6MjA4OTU2MTkzMn0.2W5wY7EOhaZGnYwvHxQF9H9NowiwRJ53tCvB2HIDeXw';
 // Shared auth options — persist session across backgrounding/mobile switches
-const SUPABASE_AUTH_OPTS={auth:{persistSession:true,autoRefreshToken:true,storageKey:'curbsidedx-auth',detectSessionInUrl:false}};
+const SUPABASE_AUTH_OPTS={auth:{persistSession:true,autoRefreshToken:true,storageKey:'curbsidedx-auth',detectSessionInUrl:true}};
 
 function initSupabase(){
   try{
@@ -2554,7 +2554,7 @@ async function signUp(){
       supabaseClient=window.supabase.createClient(
         'https://ebzuytnzbwmzrrspmmqr.supabase.co',
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVienV5dG56YndtenJyc3BtbXFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5ODU5MzIsImV4cCI6MjA4OTU2MTkzMn0.2W5wY7EOhaZGnYwvHxQF9H9NowiwRJ53tCvB2HIDeXw',
-        {auth:{persistSession:true,autoRefreshToken:true,storageKey:'curbsidedx-auth',detectSessionInUrl:false}}
+        {auth:{persistSession:true,autoRefreshToken:true,storageKey:'curbsidedx-auth',detectSessionInUrl:true}}
       );
       window.supabaseClient=supabaseClient;
     }catch(e){ showAuthError('su','Connection error — please refresh and try again'); return; }
@@ -6723,30 +6723,12 @@ function toggleTheme(){
     return;
   }
 
-  // ---- Recovery link detection ----
-  // Supabase puts #access_token=...&type=recovery in the URL
-  // We must check this BEFORE getSession() which would consume the token
-  const hashParams = new URLSearchParams(window.location.hash.replace('#',''));
-  const isRecoveryFlow = hashParams.get('type') === 'recovery';
-
-  if(isRecoveryFlow){
-    // Show reset form immediately, but keep hash so Supabase can exchange the token
-    // The PASSWORD_RECOVERY event in onAuthStateChange will confirm the session is ready
-    window._recoverySessionReady = false;
-    renderFeed();
-    requestAnimationFrame(()=>{
-      showModal('auth-modal');
-      showResetForm();
-    });
-    // DO NOT clear hash here — Supabase JS needs it to exchange for a session
-  }
-  // ---- End recovery detection ----
-
   // Check session first — only show auth modal if genuinely not logged in
+  // detectSessionInUrl:true means Supabase automatically handles recovery tokens in the URL
   let existingSession = null;
   try{
     const{data:{session},error}=await supabaseClient.auth.getSession();
-    if(!error && session && session.user && !isRecoveryFlow) existingSession = session;
+    if(!error && session && session.user) existingSession = session;
   }catch(e){
     console.error('Session check failed:',e);
   }
