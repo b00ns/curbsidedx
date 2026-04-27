@@ -1500,28 +1500,7 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
       <div class="form-group"><label class="form-label">Password</label><input class="form-input" id="si-password" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')signIn()"></div>
       <div class="form-error" id="si-error"></div>
       <button class="auth-btn" onclick="signIn()" id="si-btn">Sign in</button>
-      <div style="text-align:center;margin-top:10px;"><span style="font-size:11px;color:var(--accent);cursor:pointer;" onclick="showForgotPassword()">Forgot password?</span></div>
     </div>
-
-    <!-- Forgot Password Form -->
-    <div id="forgot-form" style="display:none;">
-      <div style="text-align:center;margin-bottom:16px;"><div style="font-size:13px;color:var(--text2);line-height:1.5;">Enter your email and we'll send a reset link.</div></div>
-      <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="fp-email" type="email" placeholder="you@hospital.edu" onkeydown="if(event.key==='Enter')sendPasswordReset()"></div>
-      <div class="form-error" id="fp-error"></div>
-      <div id="fp-success" style="display:none;color:#22c55e;font-size:12px;margin-bottom:10px;text-align:center;"></div>
-      <button class="auth-btn" onclick="sendPasswordReset()" id="fp-btn">Send reset link</button>
-      <div style="text-align:center;margin-top:10px;"><span style="font-size:11px;color:var(--accent);cursor:pointer;" onclick="showSignInForm()">← Back to sign in</span></div>
-    </div>
-
-    <!-- Reset Password Form -->
-    <div id="reset-form" style="display:none;">
-      <div style="text-align:center;margin-bottom:16px;"><div style="font-size:13px;color:var(--text2);line-height:1.5;">Choose a new password for your account.</div></div>
-      <div class="form-group"><label class="form-label">New Password</label><input class="form-input" id="rp-password" type="password" placeholder="Min 8 characters" onkeydown="if(event.key==='Enter')updatePassword()"></div>
-      <div class="form-group"><label class="form-label">Confirm Password</label><input class="form-input" id="rp-confirm" type="password" placeholder="Repeat password" onkeydown="if(event.key==='Enter')updatePassword()"></div>
-      <div class="form-error" id="rp-error"></div>
-      <button class="auth-btn" onclick="updatePassword()" id="rp-btn">Set new password</button>
-    </div>
-
     <div id="signup-form" style="display:none;">
       <div class="form-row">
         <div class="form-group"><label class="form-label">First name</label><input class="form-input" id="su-first" type="text" placeholder="Mehdi"></div>
@@ -2398,7 +2377,7 @@ const SUPABASE_URL='https://ebzuytnzbwmzrrspmmqr.supabase.co';
 // It starts with "eyJ..." — NOT the "sb_publishable_" format
 const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVienV5dG56YndtenJyc3BtbXFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5ODU5MzIsImV4cCI6MjA4OTU2MTkzMn0.2W5wY7EOhaZGnYwvHxQF9H9NowiwRJ53tCvB2HIDeXw';
 // Shared auth options — persist session across backgrounding/mobile switches
-const SUPABASE_AUTH_OPTS={auth:{persistSession:true,autoRefreshToken:true,storageKey:'curbsidedx-auth',detectSessionInUrl:true}};
+const SUPABASE_AUTH_OPTS={auth:{persistSession:true,autoRefreshToken:true,storageKey:'curbsidedx-auth',detectSessionInUrl:false}};
 
 function initSupabase(){
   try{
@@ -2451,79 +2430,6 @@ function switchAuthTab(tab){
   document.getElementById('tab-signin').classList.toggle('active',tab==='signin');
   document.getElementById('tab-signup').classList.toggle('active',tab==='signup');
 }
-// ---- Password Reset Functions ----
-function showForgotPassword(){
-  ['signin-form','signup-form','reset-form'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
-  document.getElementById('forgot-form').style.display='block';
-  const tabs=document.querySelector('.modal-tabs');if(tabs)tabs.style.display='none';
-  const tag=document.querySelector('.modal-tagline');if(tag)tag.textContent='Reset your password';
-  const fp=document.getElementById('fp-email');if(fp)fp.value='';
-  const err=document.getElementById('fp-error');if(err)err.textContent='';
-  const suc=document.getElementById('fp-success');if(suc){suc.style.display='none';suc.textContent='';}
-}
-function showSignInForm(){
-  ['forgot-form','reset-form','signup-form'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
-  document.getElementById('signin-form').style.display='block';
-  const tabs=document.querySelector('.modal-tabs');if(tabs)tabs.style.display='flex';
-  const tag=document.querySelector('.modal-tagline');if(tag)tag.textContent='Physician-only curbside consult platform';
-  const t1=document.getElementById('tab-signin');if(t1)t1.classList.add('active');
-  const t2=document.getElementById('tab-signup');if(t2)t2.classList.remove('active');
-}
-function showResetForm(){
-  ['signin-form','signup-form','forgot-form'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
-  document.getElementById('reset-form').style.display='block';
-  const tabs=document.querySelector('.modal-tabs');if(tabs)tabs.style.display='none';
-  const tag=document.querySelector('.modal-tagline');if(tag)tag.textContent='Set a new password';
-  const rp=document.getElementById('rp-password');if(rp)rp.value='';
-  const rc=document.getElementById('rp-confirm');if(rc)rc.value='';
-  const err=document.getElementById('rp-error');if(err)err.textContent='';
-  setTimeout(()=>{const rp=document.getElementById('rp-password');if(rp)rp.focus();},100);
-}
-async function sendPasswordReset(){
-  const email=document.getElementById('fp-email').value.trim();
-  if(!email)return showAuthError('fp','Please enter your email address');
-  const btn=document.getElementById('fp-btn');btn.disabled=true;btn.textContent='Sending…';
-  const{error}=await supabaseClient.auth.resetPasswordForEmail(email,{
-    redirectTo:'https://b00ns.github.io/curbsidedx/'
-  });
-  btn.disabled=false;btn.textContent='Send reset link';
-  if(error){showAuthError('fp',error.message);}
-  else{
-    const suc=document.getElementById('fp-success');
-    suc.textContent='Reset link sent! Check your email and click within 1 hour.';
-    suc.style.display='block';
-    document.getElementById('fp-error').textContent='';
-  }
-}
-async function updatePassword(){
-  const pw=document.getElementById('rp-password').value;
-  const confirm=document.getElementById('rp-confirm').value;
-  if(!pw||pw.length<8)return showAuthError('rp','Password must be at least 8 characters');
-  if(pw!==confirm)return showAuthError('rp','Passwords do not match');
-  const btn=document.getElementById('rp-btn');btn.disabled=true;btn.textContent='Updating…';
-  // If recovery session not yet confirmed, wait briefly for Supabase to exchange token
-  if(!window._recoverySessionReady){
-    const{data:{session}}=await supabaseClient.auth.getSession();
-    if(!session){
-      btn.disabled=false;btn.textContent='Set new password';
-      return showAuthError('rp','Session expired. Please request a new reset link.');
-    }
-  }
-  const{data, error}=await supabaseClient.auth.updateUser({password:pw});
-  btn.disabled=false;btn.textContent='Set new password';
-  if(error){showAuthError('rp',error.message);}
-  else{
-    window._inPasswordReset = false;
-    window._recoverySessionReady = false;
-    showToast('Password updated! Please sign in with your new password.');
-    // Sign out so they log in fresh with new password
-    await supabaseClient.auth.signOut();
-    hideModal('auth-modal');
-    showSignInForm();
-  }
-}
-// ---- End Password Reset ----
-
 async function signIn(){
   const email=document.getElementById('si-email').value.trim();
   const password=document.getElementById('si-password').value;
@@ -2562,7 +2468,7 @@ async function signUp(){
       supabaseClient=window.supabase.createClient(
         'https://ebzuytnzbwmzrrspmmqr.supabase.co',
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVienV5dG56YndtenJyc3BtbXFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5ODU5MzIsImV4cCI6MjA4OTU2MTkzMn0.2W5wY7EOhaZGnYwvHxQF9H9NowiwRJ53tCvB2HIDeXw',
-        {auth:{persistSession:true,autoRefreshToken:true,storageKey:'curbsidedx-auth',detectSessionInUrl:true}}
+        {auth:{persistSession:true,autoRefreshToken:true,storageKey:'curbsidedx-auth',detectSessionInUrl:false}}
       );
       window.supabaseClient=supabaseClient;
     }catch(e){ showAuthError('su','Connection error — please refresh and try again'); return; }
@@ -4116,21 +4022,20 @@ function renderECGThumb(c){
     // Use a unique ID so we can seek to first frame for thumbnail
     const vid=`vid-${c.id}`;
     const cropS=c.videoCrop?videoCropStyle(c.videoCrop):'';
-    return`<div class="case-video-wrap" style="overflow:hidden;">
+    return`<div class="case-video-wrap" style="overflow:hidden;cursor:zoom-in;" onclick="event.stopPropagation();expandVideo('${vid}')">
       <video id="${vid}" src="${c.videoUrl}#t=0.5" muted playsinline preload="metadata"
-        style="width:100%;max-height:220px;display:block;object-fit:contain;background:#111;${cropS}"
-        onloadeddata="this.currentTime=0.5"
-        onmouseenter="this.play()" onmouseleave="this.pause();this.currentTime=0.5"></video>
+        style="width:100%;max-height:220px;display:block;object-fit:contain;background:#111;${cropS};pointer-events:none;"
+        onloadeddata="this.currentTime=0.5"></video>
       <div class="ecg-overlay">
         <span class="ecg-tag">🎬 Video</span>
         <span class="ecg-tag2">De-identified</span>
       </div>
       <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;">
-        <div style="width:44px;height:44px;border-radius:50%;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;">
-          <div style="width:0;height:0;border-style:solid;border-width:9px 0 9px 18px;border-color:transparent transparent transparent rgba(255,255,255,.9);margin-left:3px;"></div>
+        <div style="width:52px;height:52px;border-radius:50%;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;">
+          <div style="width:0;height:0;border-style:solid;border-width:10px 0 10px 20px;border-color:transparent transparent transparent rgba(255,255,255,.9);margin-left:4px;"></div>
         </div>
       </div>
-      <button onclick="event.stopPropagation();expandVideo('${vid}')" style="position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.25);border-radius:6px;color:rgba(255,255,255,.9);font-size:11px;padding:4px 10px;cursor:pointer;font-family:var(--font-sans);pointer-events:all;display:flex;align-items:center;gap:4px;backdrop-filter:blur(4px);">⛶ Zoom</button>
+      <div style="position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.25);border-radius:6px;color:rgba(255,255,255,.9);font-size:11px;padding:5px 12px;font-family:var(--font-sans);display:flex;align-items:center;gap:4px;backdrop-filter:blur(4px);pointer-events:none;">⛶ Tap to zoom</div>
     </div>`;
   }
   if(c.ecgImageUrl)return`<div class="ecg-thumb"><img src="${c.ecgImageUrl}" alt="ECG"><div class="ecg-overlay"><span class="ecg-tag">${c.ecgType||'ECG'}</span><span class="ecg-tag2">De-identified</span></div></div>`;
@@ -5373,7 +5278,7 @@ function openCaseDetail(id){
         <video id="${vidId}" class="cd-video-player" src="${c.videoUrl}" controls playsinline preload="metadata"
           style="${c.videoCrop?videoCropStyle(c.videoCrop):''}">
         </video>
-        <button onclick="expandVideo('${vidId}')" style="position:absolute;bottom:10px;right:10px;background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.25);border-radius:6px;color:rgba(255,255,255,.9);font-size:12px;padding:5px 12px;cursor:pointer;font-family:var(--font-sans);display:flex;align-items:center;gap:5px;backdrop-filter:blur(4px);z-index:10;">⛶ Zoom</button>
+        <button onclick="event.stopPropagation();expandVideo('${vidId}')" style="position:absolute;bottom:10px;right:10px;background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.25);border-radius:6px;color:rgba(255,255,255,.9);font-size:14px;padding:8px 16px;cursor:pointer;font-family:var(--font-sans);display:flex;align-items:center;gap:5px;backdrop-filter:blur(4px);z-index:10;min-height:44px;min-width:44px;">⛶ Zoom</button>
       </div>
     </div>`;
     ecgBlock.style.display='block';
@@ -6732,7 +6637,6 @@ function toggleTheme(){
   }
 
   // Check session first — only show auth modal if genuinely not logged in
-  // detectSessionInUrl:true means Supabase automatically handles recovery tokens in the URL
   let existingSession = null;
   try{
     const{data:{session},error}=await supabaseClient.auth.getSession();
@@ -6777,12 +6681,7 @@ function toggleTheme(){
 
   if(supabaseClient){
     supabaseClient.auth.onAuthStateChange(async(event,session)=>{
-      if(event==='PASSWORD_RECOVERY'){
-        window._recoverySessionReady = true;
-        window._inPasswordReset = true;
-        showModal('auth-modal');
-        showResetForm();
-      } else if(event==='SIGNED_IN'&&session&&!window._inPasswordReset){
+      if(event==='SIGNED_IN'&&session){
         currentUser=session.user;
         await fetchProfile();
         updateUserUI();
