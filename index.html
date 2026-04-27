@@ -2501,6 +2501,14 @@ async function updatePassword(){
   if(!pw||pw.length<8)return showAuthError('rp','Password must be at least 8 characters');
   if(pw!==confirm)return showAuthError('rp','Passwords do not match');
   const btn=document.getElementById('rp-btn');btn.disabled=true;btn.textContent='Updating…';
+  // If recovery session not yet confirmed, wait briefly for Supabase to exchange token
+  if(!window._recoverySessionReady){
+    const{data:{session}}=await supabaseClient.auth.getSession();
+    if(!session){
+      btn.disabled=false;btn.textContent='Set new password';
+      return showAuthError('rp','Session expired. Please request a new reset link.');
+    }
+  }
   const{error}=await supabaseClient.auth.updateUser({password:pw});
   btn.disabled=false;btn.textContent='Set new password';
   if(error){showAuthError('rp',error.message);}
@@ -6722,16 +6730,15 @@ function toggleTheme(){
   const isRecoveryFlow = hashParams.get('type') === 'recovery';
 
   if(isRecoveryFlow){
-    // Let Supabase process the hash token, then show reset form
-    // onAuthStateChange will fire PASSWORD_RECOVERY once the token is exchanged
+    // Show reset form immediately, but keep hash so Supabase can exchange the token
+    // The PASSWORD_RECOVERY event in onAuthStateChange will confirm the session is ready
+    window._recoverySessionReady = false;
     renderFeed();
     requestAnimationFrame(()=>{
       showModal('auth-modal');
       showResetForm();
     });
-    // Clear hash from URL so it doesn't re-trigger on reload
-    history.replaceState(null, '', window.location.pathname);
-    // onAuthStateChange below will handle the rest
+    // DO NOT clear hash here — Supabase JS needs it to exchange for a session
   }
   // ---- End recovery detection ----
 
@@ -6780,7 +6787,11 @@ function toggleTheme(){
 
   if(supabaseClient){
     supabaseClient.auth.onAuthStateChange(async(event,session)=>{
-      if(event==='SIGNED_IN'&&session){
+      if(event==='PASSWORD_RECOVERY'){
+        window._recoverySessionReady = true;
+        showModal('auth-modal');
+        showResetForm();
+      } else if(event==='SIGNED_IN'&&session){
         currentUser=session.user;
         await fetchProfile();
         updateUserUI();
