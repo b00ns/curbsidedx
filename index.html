@@ -54,6 +54,17 @@ window._supabaseReady = true;
   --ecg-bg: #080a0f;
 }
 
+/* ── Suppress browser automation agent overlay ── */
+#claude-agent-glow-border,
+[id*="claude-agent"],
+[id*="claude-pulse"] {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  box-shadow: none !important;
+  animation: none !important;
+}
+
 /* ── LIGHT MODE (default) ── */
 html[data-theme="light"] {
   --bg: #f7f6f2;
@@ -5268,6 +5279,7 @@ function openCaseDetail(id){
         <video id="${vidId}" class="cd-video-player" src="${c.videoUrl}" controls playsinline preload="metadata"
           style="${c.videoCrop?videoCropStyle(c.videoCrop):''}">
         </video>
+        <button onclick="expandVideo('${vidId}')" style="position:absolute;bottom:10px;right:10px;background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.25);border-radius:6px;color:rgba(255,255,255,.9);font-size:12px;padding:5px 12px;cursor:pointer;font-family:var(--font-sans);display:flex;align-items:center;gap:5px;backdrop-filter:blur(4px);z-index:10;">⛶ Zoom</button>
       </div>
     </div>`;
     ecgBlock.style.display='block';
