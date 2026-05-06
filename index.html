@@ -5619,7 +5619,7 @@ function openCaseDetail(id){
           <span>De-identified ✓</span>
         </div>
       </div>
-      <div class="cd-video-player-wrap" style="overflow:hidden;position:relative;" ${c.videoCrop?`data-crop="${JSON.stringify(c.videoCrop).replace(/"/g,'&quot;')}"`:''}">
+      <div class="cd-video-player-wrap" style="overflow:hidden;position:relative;" ${c.videoCrop?`data-crop="${JSON.stringify(c.videoCrop).replace(/"/g,'&quot;')}"`:''}>
         <video id="${vidId}" class="cd-video-player" src="${c.videoUrl}" controls playsinline preload="metadata"
           style="width:100%;object-fit:contain;"
           data-erase-rects="${c.videoCrop&&c.videoCrop.eraseRects?JSON.stringify(c.videoCrop.eraseRects).replace(/"/g,'&quot;'):''}"
