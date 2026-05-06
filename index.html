@@ -2692,6 +2692,9 @@ function openMediaEditor(){
       _cropCanvas=null;_cropCtx=null;
       meRenderCropUI();
       if(!window._meCropWired){window._meCropWired=true;meWireCropOverlay();}
+      // Wire video erase now that we have real canvas dimensions
+      if(!window._videoEraseWired){window._videoEraseWired=true;meWireVideoErase();}
+      meRedrawVideoEraseOverlay();
     };
 
     const onMeta=()=>{
@@ -2713,8 +2716,11 @@ function openMediaEditor(){
       },2000);
     }
 
-    document.getElementById('me-hint').textContent='Drag handles to crop out patient info from edges — crops the full video on playback';
-    document.getElementById('me-erase-btn').style.display='none';
+    document.getElementById('me-hint').textContent='Drag handles to crop · Switch to Erase to black out PHI overlays';
+    document.getElementById('me-erase-btn').style.display='';
+    // Wire the draw canvas for video erase — sized to match the video element
+    // We defer this until initCropOverlay has set meCanvasW/H
+    window._videoEraseWired=false;
   } else {
     document.getElementById('me-erase-btn').style.display='';
     document.getElementById('me-hint').textContent='Drag handles to crop · Switch to Erase to black out text';
@@ -2757,11 +2763,14 @@ function _meResetState(){
   meSourceImg=null;
   meSourceVideo=null;
   window._meCropWired=false;
+  meCanvasW=0; meCanvasH=0; meScale=1; // zero dims so stale values never corrupt save
+  meCrop={x:0,y:0,w:0,h:0};
   const oldCC=document.getElementById('me-crop-canvas');
   if(oldCC)oldCC.remove();
   _cropCanvas=null;_cropCtx=null;
-  meSetTool('crop');
   meRedactHistory=[];
+  window._videoEraseRects=[];
+  meTool='crop';
 }
 
 function meInit(srcW,srcH){
@@ -2803,9 +2812,18 @@ function meSetTool(tool){
   if(cc)cc.style.display=tool==='crop'?'block':'none';
   const oldOvl=document.getElementById('me-crop-overlay');
   if(oldOvl)oldOvl.style.display='none';
-  document.getElementById('me-draw-canvas').style.cursor=tool==='erase'?'cell':'default';
+  const dc2=document.getElementById('me-draw-canvas');
+  if(dc2) dc2.style.cursor=tool==='erase'?'cell':'default';
+  // In video mode: draw canvas must be visible for erase hit-testing; crop canvas handles crop
+  // In image mode: draw canvas is always shown for both (crop canvas sits on top)
+  if(meIsVideo&&dc2){
+    dc2.style.pointerEvents=tool==='erase'?'all':'none';
+    dc2.style.zIndex=tool==='erase'?'6':'0';
+  }
   const hint=document.getElementById('me-hint');
-  hint.textContent=tool==='erase'?'Draw over any text to erase it — names, MRN, DOB, device ID':'Drag handles or corners to crop out patient info from edges';
+  if(hint) hint.textContent=tool==='erase'
+    ?'Draw black boxes over any PHI — patient name, MRN, date, device ID'
+    :'Drag handles to crop out patient info from edges';
 }
 
 // ── CROP UI ────────────────────────────────────────────────────────────
@@ -2981,6 +2999,89 @@ function meCropMove(clientX,clientY){
 
 document.addEventListener('mousemove',e=>{if(meCropDrag)meCropMove(e.clientX,e.clientY);});
 
+// ── VIDEO ERASE OVERLAY ────────────────────────────────────────────────
+// For video we can't bake redactions into pixels, so we store erase rects as
+// percentages and render an absolutely-positioned SVG overlay on the video.
+// On save, these are stored alongside the crop data and applied on feed playback.
+if(!window._videoEraseRects) window._videoEraseRects=[];
+
+function meGetVideoEraseOverlay(){
+  let ov=document.getElementById('me-video-erase-overlay');
+  if(!ov){
+    ov=document.createElement('div');
+    ov.id='me-video-erase-overlay';
+    ov.style.cssText='position:absolute;top:0;left:0;pointer-events:none;z-index:5;';
+    const edVid=document.getElementById('me-editor-video');
+    if(edVid&&edVid.parentNode) edVid.parentNode.appendChild(ov);
+  }
+  return ov;
+}
+
+function meRedrawVideoEraseOverlay(){
+  if(!meIsVideo) return;
+  const ov=meGetVideoEraseOverlay();
+  if(!ov) return;
+  ov.style.width=meCanvasW+'px';
+  ov.style.height=meCanvasH+'px';
+  // Build SVG with black rects for each erase region
+  const rects=(window._videoEraseRects||[]).map(r=>
+    `<rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" fill="black"/>`
+  ).join('');
+  ov.innerHTML=`<svg width="${meCanvasW}" height="${meCanvasH}" xmlns="http://www.w3.org/2000/svg">${rects}</svg>`;
+}
+
+function meWireVideoErase(){
+  // Attach draw events to me-draw-canvas — it's transparent in video mode
+  // but positioned over the video element so touch/click hits land on it.
+  const dc=document.getElementById('me-draw-canvas');
+  if(!dc) return;
+  // Size the draw canvas to match the video
+  dc.width=meCanvasW; dc.height=meCanvasH;
+  dc.style.width=meCanvasW+'px'; dc.style.height=meCanvasH+'px';
+  dc.style.display='block';
+  dc.style.position='absolute';
+  dc.style.top='0'; dc.style.left='0';
+  dc.style.zIndex='6'; // above video erase overlay, below crop canvas
+
+  let drawing=false, startX=0, startY=0;
+
+  function onStart(cx,cy){
+    if(meTool!=='erase') return false;
+    drawing=true; startX=cx; startY=cy; return true;
+  }
+  function onMove(cx,cy){
+    if(!drawing||meTool!=='erase') return;
+    const dctx=dc.getContext('2d');
+    dctx.clearRect(0,0,dc.width,dc.height);
+    dctx.fillStyle='rgba(0,0,0,0.7)';
+    dctx.fillRect(Math.min(startX,cx),Math.min(startY,cy),Math.abs(cx-startX),Math.abs(cy-startY));
+  }
+  function onEnd(cx,cy){
+    if(!drawing||meTool!=='erase') return;
+    drawing=false;
+    const dc2=document.getElementById('me-draw-canvas');
+    dc2.getContext('2d').clearRect(0,0,meCanvasW,meCanvasH);
+    const rx=Math.min(startX,cx), ry=Math.min(startY,cy);
+    const rw=Math.abs(cx-startX), rh=Math.abs(cy-startY);
+    if(rw<4||rh<4) return;
+    if(!window._videoEraseRects) window._videoEraseRects=[];
+    window._videoEraseRects.push({x:Math.round(rx),y:Math.round(ry),w:Math.round(rw),h:Math.round(rh)});
+    meRedrawVideoEraseOverlay();
+  }
+
+  const toBounds=(clientX,clientY)=>{
+    const r=dc.getBoundingClientRect();
+    return{cx:clientX-r.left, cy:clientY-r.top};
+  };
+
+  dc.onmousedown=e=>{if(onStart(...Object.values(toBounds(e.clientX,e.clientY))))e.preventDefault();};
+  dc.onmousemove=e=>{const{cx,cy}=toBounds(e.clientX,e.clientY);onMove(cx,cy);};
+  dc.onmouseup=e=>{const{cx,cy}=toBounds(e.clientX,e.clientY);onEnd(cx,cy);};
+  dc.ontouchstart=e=>{const t=e.touches[0];const{cx,cy}=toBounds(t.clientX,t.clientY);if(onStart(cx,cy))e.preventDefault();};
+  dc.ontouchmove=e=>{if(!drawing)return;const t=e.touches[0];const{cx,cy}=toBounds(t.clientX,t.clientY);onMove(cx,cy);e.preventDefault();};
+  dc.ontouchend=e=>{const t=e.changedTouches[0];const{cx,cy}=toBounds(t.clientX,t.clientY);onEnd(cx,cy);};
+}
+
 // ── ERASE (REDACT) ─────────────────────────────────────────────────────
 function meWireDrawCanvas(){
   const dc=document.getElementById('me-draw-canvas');
@@ -3059,6 +3160,13 @@ function meRedrawAll(){
 }
 
 function meUndo(){
+  if(meIsVideo){
+    if(!window._videoEraseRects||window._videoEraseRects.length===0){showToast('Nothing to undo',true);return;}
+    window._videoEraseRects.pop();
+    meRedrawVideoEraseOverlay();
+    showToast('Undo');
+    return;
+  }
   if(meRedactHistory.length===0){showToast('Nothing to undo',true);return;}
   meRedactHistory.pop();
   meRedrawAll();
@@ -3066,6 +3174,14 @@ function meUndo(){
 }
 
 function meReset(){
+  if(meIsVideo){
+    window._videoEraseRects=[];
+    meRedrawVideoEraseOverlay();
+    meCrop={x:0,y:0,w:meCanvasW,h:meCanvasH};
+    meRenderCropUI();
+    showToast('Reset to original');
+    return;
+  }
   meRedactHistory=[];
   meCrop={x:0,y:0,w:meCanvasW,h:meCanvasH};
   meRedrawAll();
@@ -3086,12 +3202,30 @@ function closeMediaEditor(){
 
 async function saveMediaEdit(){
   if(meIsVideo){
-    // VIDEO: save crop as percentages — applied via CSS on playback (whole video cropped, not just a frame)
-    const cropTop=meCanvasH>0?(meCrop.y/meCanvasH*100):0;
-    const cropLeft=meCanvasW>0?(meCrop.x/meCanvasW*100):0;
-    const cropBottom=meCanvasH>0?((meCanvasH-meCrop.y-meCrop.h)/meCanvasH*100):0;
-    const cropRight=meCanvasW>0?((meCanvasW-meCrop.x-meCrop.w)/meCanvasW*100):0;
+    // VIDEO: save crop + erase as percentages — applied via CSS on playback
+    // Guard: if meCanvasW/H are 0 (shouldn't happen but belt-and-suspenders),
+    // read real dimensions directly from the video element
+    if(meCanvasW<=0||meCanvasH<=0){
+      const edVid=document.getElementById('me-editor-video');
+      if(edVid&&edVid.videoWidth>0){
+        meCanvasW=edVid.videoWidth; meCanvasH=edVid.videoHeight;
+      } else {
+        showToast('Editor not ready — please try again',true); return;
+      }
+    }
+    const cropTop=meCrop.y/meCanvasH*100;
+    const cropLeft=meCrop.x/meCanvasW*100;
+    const cropBottom=(meCanvasH-meCrop.y-meCrop.h)/meCanvasH*100;
+    const cropRight=(meCanvasW-meCrop.x-meCrop.w)/meCanvasW*100;
     const cropData={top:+cropTop.toFixed(2),left:+cropLeft.toFixed(2),bottom:+cropBottom.toFixed(2),right:+cropRight.toFixed(2)};
+    // Convert erase rects from canvas px to percentages so they scale with any playback size
+    const eraseData=(window._videoEraseRects||[]).map(r=>({
+      left:+(r.x/meCanvasW*100).toFixed(2),
+      top:+(r.y/meCanvasH*100).toFixed(2),
+      width:+(r.w/meCanvasW*100).toFixed(2),
+      height:+(r.h/meCanvasH*100).toFixed(2)
+    }));
+    cropData.eraseRects=eraseData;
     window._pendingVideoCrop=cropData;
     window._currentVideoCrop=cropData;
     // Reset editor video element
@@ -3120,13 +3254,15 @@ async function saveMediaEdit(){
       vidWrap.style.maxHeight='240px';
       vidWrap.style.display='block';
     }
-    if(hasCrop){
-      showToast('✓ Crop saved — will apply on playback');
-      setScanBadge('✓ Video cropped — crop will apply on playback','override');
-    } else {
-      showToast('No crop applied');
-      setScanBadge('⚠️ Video: confirm no PHI in overlay or filename','override');
-    }
+    const hasErase=eraseData.length>0;
+    if(hasCrop&&hasErase) showToast(`✓ Crop + ${eraseData.length} erase(s) saved — applied on playback`);
+    else if(hasCrop) showToast('✓ Crop saved — will apply on playback');
+    else if(hasErase) showToast(`✓ ${eraseData.length} erase(s) saved — applied on playback`);
+    else showToast('No edits applied');
+    const badgeParts=[];
+    if(hasCrop) badgeParts.push('cropped');
+    if(hasErase) badgeParts.push(`${eraseData.length} erase(s)`);
+    setScanBadge(badgeParts.length?`✓ Video ${badgeParts.join(' + ')} — applied on playback`:'⚠️ Video: confirm no PHI in overlay or filename', badgeParts.length?'override':'override');
     return;
   }
 
@@ -3221,11 +3357,13 @@ function expandVideo(vidId){
 
   // Strip the #t=0.5 seek hint from the src so the overlay starts from the beginning
   const rawSrc=(vid.src||'').replace(/#t=[^&]*/,'');
-  // Carry over any crop style (clip-path) from the source element
+  // Carry over crop style from the source element
   const cropStyle=vid.style.clipPath?`clip-path:${vid.style.clipPath};`:'';
+  // Carry over erase rects stored as data attribute on the video element
+  const eraseRectsJson=vid.dataset.eraseRects||'';
 
   const ov=document.createElement('div');
-  ov.style.cssText='position:fixed;inset:0;background:#000;z-index:9999;display:flex;align-items:center;justify-content:center;touch-action:none;';
+  ov.style.cssText='position:fixed;inset:0;background:#000;z-index:9999;display:flex;align-items:center;justify-content:center;touch-action:none;position:relative;';
   ov.onclick=(e)=>{if(e.target===ov)ov.remove();};
 
   const v2=document.createElement('video');
@@ -3237,6 +3375,23 @@ function expandVideo(vidId){
   v2.style.cssText=`max-width:100%;max-height:100%;${cropStyle}`;
   // Explicit load() ensures the video fetches data even when parent was preload=metadata
   v2.load();
+
+  // Render erase overlay boxes inside the zoom modal
+  if(eraseRectsJson){
+    try{
+      const rects=JSON.parse(eraseRectsJson);
+      if(rects&&rects.length){
+        const eraseWrap=document.createElement('div');
+        eraseWrap.style.cssText='position:absolute;inset:0;pointer-events:none;overflow:hidden;';
+        rects.forEach(r=>{
+          const box=document.createElement('div');
+          box.style.cssText=`position:absolute;left:${r.left}%;top:${r.top}%;width:${r.width}%;height:${r.height}%;background:#000;`;
+          eraseWrap.appendChild(box);
+        });
+        ov.appendChild(eraseWrap);
+      }
+    }catch(e){}
+  }
 
   const closeBtn=document.createElement('button');
   closeBtn.textContent='✕';
@@ -4018,10 +4173,15 @@ function renderECGThumb(c){
     // Use a unique ID so we can seek to first frame for thumbnail
     const vid=`vid-${c.id}`;
     const cropS=c.videoCrop?videoCropStyle(c.videoCrop):'';
-    return`<div class="case-video-wrap" style="overflow:hidden;cursor:zoom-in;" onclick="event.stopPropagation();expandVideo('${vid}')">
+    const _eraseRects=c.videoCrop&&c.videoCrop.eraseRects?c.videoCrop.eraseRects:[];
+    const _eraseAttr=_eraseRects.length?JSON.stringify(_eraseRects).replace(/"/g,'&quot;'):'';
+    const _eraseOvl=renderVideoEraseOverlay(_eraseRects);
+    return`<div class="case-video-wrap" style="overflow:hidden;cursor:zoom-in;position:relative;" onclick="event.stopPropagation();expandVideo('${vid}')">
       <video id="${vid}" src="${c.videoUrl}#t=0.5" muted playsinline preload="metadata"
         style="width:100%;max-height:220px;display:block;object-fit:contain;background:#111;${cropS};pointer-events:none;"
+        data-erase-rects="${_eraseAttr}"
         onloadeddata="this.currentTime=0.5"></video>
+      ${_eraseOvl}
       <div class="ecg-overlay">
         <span class="ecg-tag">🎬 Video</span>
         <span class="ecg-tag2">De-identified</span>
@@ -5300,8 +5460,11 @@ function openCaseDetail(id){
       </div>
       <div class="cd-video-player-wrap" style="overflow:hidden;position:relative;">
         <video id="${vidId}" class="cd-video-player" src="${c.videoUrl}" controls playsinline preload="metadata"
-          style="${c.videoCrop?videoCropStyle(c.videoCrop):''}">
+          style="${c.videoCrop?videoCropStyle(c.videoCrop):'object-fit:contain;'}"
+          data-erase-rects="${c.videoCrop&&c.videoCrop.eraseRects?JSON.stringify(c.videoCrop.eraseRects).replace(/"/g,'&quot;'):''}"
+          >
         </video>
+        ${c.videoCrop&&c.videoCrop.eraseRects?renderVideoEraseOverlay(c.videoCrop.eraseRects):''}
         <button onclick="event.stopPropagation();expandVideo('${vidId}')" style="position:absolute;bottom:10px;right:10px;background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.25);border-radius:6px;color:rgba(255,255,255,.9);font-size:14px;padding:8px 16px;cursor:pointer;font-family:var(--font-sans);display:flex;align-items:center;gap:5px;backdrop-filter:blur(4px);z-index:10;min-height:44px;min-width:44px;">⛶ Zoom</button>
       </div>
     </div>`;
