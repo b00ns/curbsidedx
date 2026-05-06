@@ -327,7 +327,7 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text);overflo
   border-radius:var(--r);overflow:hidden;margin-bottom:12px;
   border:1px solid var(--border);background:#111;position:relative;
 }
-.case-video-wrap video{width:100%;display:block;max-height:220px;object-fit:contain;}
+.case-video-wrap video{width:100%;display:block;}
 .case-video-wrap .ecg-overlay{
   position:absolute;top:0;left:0;right:0;
   display:flex;align-items:flex-start;justify-content:space-between;
@@ -349,7 +349,7 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text);overflo
 .cd-video-player{
   width:100%;display:block;
   min-height:260px;max-height:380px;
-  object-fit:contain;background:#000;
+  background:#000;
 }
 /* PHI video warning */
 .phi-video-warning{
@@ -2596,13 +2596,21 @@ let meCropDrag=null; // {handle, startX,startY, origCrop}
 // ── VIDEO CROP HELPERS ────────────────────────────────────────────────
 // crop = {top, left, right, bottom} as percentages 0-100
 function videoCropStyle(crop){
+  // Returns the CSS to apply directly to the <video> element to show only the cropped region.
+  // Uses object-fit:fill + translate + scale so the cropped region fills the container.
   if(!crop)return '';
-  const t=Math.max(0,crop.top||0).toFixed(2);
-  const r=Math.max(0,crop.right||0).toFixed(2);
-  const b=Math.max(0,crop.bottom||0).toFixed(2);
-  const l=Math.max(0,crop.left||0).toFixed(2);
-  if(t==='0.00'&&r==='0.00'&&b==='0.00'&&l==='0.00')return '';
-  return `clip-path:inset(${t}% ${r}% ${b}% ${l}%);`;
+  const t=Math.max(0,crop.top||0);
+  const r=Math.max(0,crop.right||0);
+  const b=Math.max(0,crop.bottom||0);
+  const l=Math.max(0,crop.left||0);
+  if(!t&&!r&&!b&&!l)return '';
+  const visW=(100-l-r)/100||1;
+  const visH=(100-t-b)/100||1;
+  const scaleX=(1/visW).toFixed(4);
+  const scaleY=(1/visH).toFixed(4);
+  const offX=(-(l/100/visW)*100).toFixed(2);
+  const offY=(-(t/100/visH)*100).toFixed(2);
+  return `object-fit:fill;transform:translate(${offX}%,${offY}%) scale(${scaleX},${scaleY});transform-origin:top left;`;
 }
 function videoCropWrapStyle(crop){
   // Expand wrapper to compensate so video fills its space after clipping
@@ -3386,7 +3394,10 @@ function expandVideo(vidId){
   const eraseRectsJson=vid.dataset.eraseRects||'';
 
   const ov=document.createElement('div');
-  ov.style.cssText='position:fixed;inset:0;background:#000;z-index:9999;display:flex;align-items:center;justify-content:center;touch-action:none;position:relative;';
+  // Append to <html> not <body> — case-card:hover applies transform:translateY
+  // which creates a stacking context that traps position:fixed children inside it.
+  // document.documentElement is never transformed so fixed positioning works correctly.
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:2147483640;display:flex;align-items:center;justify-content:center;touch-action:none;';
   ov.onclick=(e)=>{if(e.target===ov)ov.remove();};
 
   const v2=document.createElement('video');
@@ -3423,7 +3434,7 @@ function expandVideo(vidId){
 
   ov.appendChild(v2);
   ov.appendChild(closeBtn);
-  document.body.appendChild(ov);
+  document.documentElement.appendChild(ov);
 
   // Attempt autoplay — silently ignored if browser blocks it (user can tap play)
   v2.play().catch(()=>{});
@@ -4201,7 +4212,7 @@ function renderECGThumb(c){
     const _eraseOvl=renderVideoEraseOverlay(_eraseRects);
     return`<div class="case-video-wrap" style="overflow:hidden;cursor:zoom-in;position:relative;" onclick="event.stopPropagation();expandVideo('${vid}')">
       <video id="${vid}" src="${c.videoUrl}#t=0.5" muted playsinline preload="metadata"
-        style="width:100%;max-height:220px;display:block;object-fit:contain;background:#111;${cropS};pointer-events:none;"
+        style="width:100%;height:220px;display:block;${cropS||'object-fit:contain;'};background:#111;pointer-events:none;"
         data-erase-rects="${_eraseAttr}"
         onloadeddata="this.currentTime=0.5"></video>
       ${_eraseOvl}
@@ -5483,7 +5494,7 @@ function openCaseDetail(id){
       </div>
       <div class="cd-video-player-wrap" style="overflow:hidden;position:relative;">
         <video id="${vidId}" class="cd-video-player" src="${c.videoUrl}" controls playsinline preload="metadata"
-          style="${c.videoCrop?videoCropStyle(c.videoCrop):'object-fit:contain;'}"
+          style="width:100%;height:100%;${c.videoCrop?videoCropStyle(c.videoCrop):'object-fit:contain;'}"
           data-erase-rects="${c.videoCrop&&c.videoCrop.eraseRects?JSON.stringify(c.videoCrop.eraseRects).replace(/"/g,'&quot;'):''}"
           >
         </video>
