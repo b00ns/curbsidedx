@@ -71,8 +71,9 @@ window._supabaseReady = true;
   display:flex;align-items:center;justify-content:center;gap:8px;
   height:0;overflow:hidden;z-index:999;
   background:var(--bg2);border-bottom:1px solid var(--border);
-  transition:height .2s ease;pointer-events:none;
+  transition:height .3s ease;pointer-events:none;
   font-size:12px;color:var(--text2);font-family:var(--font-sans);
+  font-weight:500;
 }
 .ptr-indicator.ptr-ready{color:var(--accent);}
 .ptr-indicator.ptr-loading{height:44px;}
@@ -3347,19 +3348,27 @@ async function saveMediaEdit(){
     // the crop is baked in (causing the zoomed-in artifact reported).
     const vidPrev=document.getElementById('video-preview');
     const vidWrap=document.getElementById('video-preview-wrap');
+    // Log what we're saving so crop issues are debuggable
+    console.log('[saveMediaEdit] saving videoCrop:', JSON.stringify(cropData),
+      'meCanvasW:', meCanvasW, 'meCanvasH:', meCanvasH,
+      'meCrop:', JSON.stringify(meCrop));
     if(vidPrev){
-      // Reset any previously-applied transform so preview is clean
-      vidPrev.style.transform='';
-      vidPrev.style.transformOrigin='';
-      vidPrev.style.objectFit='contain';
-      vidPrev.style.maxHeight='240px';
-      vidPrev.style.width='100%';
-      vidPrev.style.display='block';
+      // Reset styles — applyVideoCrops will handle the visual crop
+      vidPrev.style.cssText='display:block;width:100%;object-fit:contain;position:relative;';
+      vidPrev._cropListenerAdded=false; // allow re-run on metadata
     }
     if(vidWrap){
       vidWrap.style.overflow='hidden';
-      vidWrap.style.maxHeight='240px';
       vidWrap.style.display='block';
+      // Apply crop data to preview wrap so applyVideoCrops can show it correctly
+      if(hasCrop){
+        vidWrap.dataset.crop=JSON.stringify(cropData);
+        vidWrap.style.position='relative';
+        requestAnimationFrame(applyVideoCrops);
+      } else {
+        delete vidWrap.dataset.crop;
+        vidWrap.style.height='240px';
+      }
     }
     const hasErase=eraseData.length>0;
     if(hasCrop&&hasErase) showToast(`✓ Crop + ${eraseData.length} erase(s) saved — applied on playback`);
@@ -4719,6 +4728,7 @@ async function submitCase(){
       ddx,votes:ddx.map(()=>0),resolvedDx:null,resolvedNote:null,status:'open',responses:[]
     };
 
+    console.log('[submitCase] videoCrop being saved:', JSON.stringify(newCase.videoCrop));
     if(supabaseClient&&currentUser){
       const saved=await Promise.race([
         persistCase(newCase),
@@ -7052,23 +7062,46 @@ function toggleTheme(){
       const dy=e.changedTouches[0].clientY-startY;
       if(dy>=THRESHOLD&&!triggered){
         triggered=true;
-        if(indicator){indicator.style.height='44px';indicator.classList.add('ptr-loading');}
+        // Lock indicator open during refresh
+        if(indicator){
+          indicator.style.transition='none';
+          indicator.style.height='48px';
+          indicator.classList.add('ptr-loading');
+          indicator.classList.remove('ptr-ready');
+        }
         if(label) label.textContent='Refreshing…';
+        const spinner=document.getElementById('ptr-spinner');
+        if(spinner) spinner.style.display='block';
         try{
           if(typeof loadCasesFromDB==='function') await loadCasesFromDB();
           if(typeof renderFeed==='function') renderFeed();
           if(typeof renderLeaderboard==='function') renderLeaderboard();
           if(typeof updateStatCounters==='function') updateStatCounters();
-        }catch(err){console.warn('PTR refresh error:',err);}
-        setTimeout(resetIndicator,600);
+          if(label) label.textContent='✓ Updated';
+          if(spinner) spinner.style.display='none';
+        }catch(err){
+          console.warn('PTR refresh error:',err);
+          if(label) label.textContent='Refresh failed';
+        }
+        // Keep success message visible briefly, then slide away
+        setTimeout(()=>{
+          if(indicator) indicator.style.transition='height .3s ease';
+          resetIndicator();
+        },1000);
       } else {
         resetIndicator();
       }
     },{passive:true});
 
     function resetIndicator(){
-      if(indicator){indicator.style.height='0';indicator.classList.remove('ptr-ready','ptr-loading');}
+      if(indicator){
+        indicator.style.transition='height .3s ease';
+        indicator.style.height='0';
+        indicator.classList.remove('ptr-ready','ptr-loading');
+      }
       if(label) label.textContent='Pull to refresh';
+      const spinner=document.getElementById('ptr-spinner');
+      if(spinner) spinner.style.display='block';
       pulling=false;
     }
   })();
