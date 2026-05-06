@@ -327,7 +327,7 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text);overflo
   border-radius:var(--r);overflow:hidden;margin-bottom:12px;
   border:1px solid var(--border);background:#111;position:relative;
 }
-.case-video-wrap video{width:100%;display:block;}
+.case-video-wrap video{width:100%;display:block;max-height:220px;object-fit:contain;background:#111;}
 .case-video-wrap .ecg-overlay{
   position:absolute;top:0;left:0;right:0;
   display:flex;align-items:flex-start;justify-content:space-between;
@@ -2615,36 +2615,54 @@ function applyVideoCrops(){
       const t=(crop.top||0)/100, l=(crop.left||0)/100;
       const b=(crop.bottom||0)/100, r=(crop.right||0)/100;
       if(!t&&!l&&!b&&!r){
-        // No crop — reset to normal
-        vid.style.cssText='width:100%;height:100%;object-fit:contain;position:relative;';
+        // No crop — reset to defaults
+        vid.style.cssText='width:100%;max-height:220px;object-fit:contain;position:relative;display:block;background:#111;';
         return;
       }
-      const visW=Math.max(0.01,1-l-r), visH=Math.max(0.01,1-t-b);
-      // Use native video dimensions for correct AR; fall back to 16:9 if not loaded yet
-      // If metadata not loaded yet, re-run once it arrives (portrait videos especially)
+      // Re-run when native dimensions arrive (portrait videos load metadata after paint)
       if(!vid._cropListenerAdded){
         vid._cropListenerAdded=true;
         vid.addEventListener('loadedmetadata',()=>applyVideoCrops(),{once:true});
       }
-      const nw=vid.videoWidth||1280;
-      const nh=vid.videoHeight||720;
+      const visW=Math.max(0.01,1-l-r), visH=Math.max(0.01,1-t-b);
+      const nw=vid.videoWidth||1280, nh=vid.videoHeight||720;
       const visNW=nw*visW, visNH=nh*visH; // visible region in native px
-      const cw=wrapper.offsetWidth||1, ch=wrapper.offsetHeight||1;
-      // Uniform scale so visible region fills container without distortion
-      const scale=Math.min(cw/visNW, ch/visNH);
+
+      // Scale: fit visible region into container width, let height be natural
+      // (don't constrain by wrapper height — wrapper will size to the result)
+      const cw=wrapper.offsetWidth||600;
+      const scale=cw/visNW;  // fill full width, height follows AR naturally
       const rw=Math.round(nw*scale), rh=Math.round(nh*scale);
-      const offX=Math.round(-(l*nw*scale));
-      const offY=Math.round(-(t*nh*scale));
+      const cropW=Math.round(visNW*scale); // == cw
+      const cropH=Math.round(visNH*scale);
+
+      // Cap height at 280px on desktop (>900px wide), 60vw on mobile
+      const isMobile=window.innerWidth<=900;
+      const maxH=isMobile ? Math.round(window.innerWidth*0.6) : 280;
+      let finalScale=scale;
+      if(cropH>maxH){
+        finalScale=scale*(maxH/cropH);
+      }
+      const frw=Math.round(nw*finalScale), frh=Math.round(nh*finalScale);
+      const fcropW=Math.round(visNW*finalScale), fcropH=Math.round(visNH*finalScale);
+
+      // Set wrapper to exact cropped size — video positioned inside, offset to show crop region
       wrapper.style.position='relative';
       wrapper.style.overflow='hidden';
+      wrapper.style.width='100%';
+      wrapper.style.height=fcropH+'px';
       vid.style.position='absolute';
-      vid.style.width=rw+'px';
-      vid.style.height=rh+'px';
-      vid.style.left=offX+'px';
-      vid.style.top=offY+'px';
+      vid.style.width=frw+'px';
+      vid.style.height=frh+'px';
+      // Center horizontally: offset = crop-left offset + half the spare width
+      const leftOff=Math.round(-(l*nw*finalScale));
+      const spareW=fcropW-frw; // always <= 0, left aligns naturally
+      vid.style.left=leftOff+'px';
+      vid.style.top=Math.round(-(t*nh*finalScale))+'px';
       vid.style.objectFit='fill';
       vid.style.maxWidth='none';
       vid.style.maxHeight='none';
+      vid.style.display='block';
     }catch(e){console.warn('applyVideoCrops:',e);}
   });
 }
@@ -3502,9 +3520,9 @@ function expandVideo(vidId){
       }
     }catch(e){}
   } else {
-    // No crop — let video fill naturally
-    v2.style.maxWidth='95vw';
-    v2.style.maxHeight='88vh';
+    // No crop — natural size, constrained to viewport
+    v2.style.cssText='max-width:95vw;max-height:88vh;object-fit:contain;display:block;';
+    vidWrap.style.cssText='display:flex;align-items:center;justify-content:center;';
   }
   vidWrap.appendChild(v2);
   ov.appendChild(vidWrap);
@@ -4286,9 +4304,9 @@ function renderECGThumb(c){
     const _eraseAttr=_eraseRects.length?JSON.stringify(_eraseRects).replace(/"/g,'&quot;'):'';
     const _eraseOvl=renderVideoEraseOverlay(_eraseRects);
     const _cropAttr=c.videoCrop?JSON.stringify(c.videoCrop).replace(/"/g,'&quot;'):'';
-    return`<div class="case-video-wrap" style="overflow:hidden;cursor:zoom-in;position:relative;height:220px;" ${_cropAttr?`data-crop="${_cropAttr}"`:''} onclick="event.stopPropagation();expandVideo('${vid}')">
+    return`<div class="case-video-wrap" style="overflow:hidden;cursor:zoom-in;position:relative;" ${_cropAttr?`data-crop="${_cropAttr}"`:''} onclick="event.stopPropagation();expandVideo('${vid}')">
       <video id="${vid}" src="${c.videoUrl}#t=0.5" muted playsinline preload="metadata"
-        style="width:100%;height:100%;display:block;object-fit:contain;background:#111;pointer-events:none;"
+        style="width:100%;display:block;object-fit:contain;background:#111;pointer-events:none;"
         data-erase-rects="${_eraseAttr}"
         onloadeddata="this.currentTime=0.5"></video>
       ${_eraseOvl}
