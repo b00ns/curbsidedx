@@ -3101,47 +3101,31 @@ async function saveMediaEdit(){
     document.getElementById('me-draw-canvas').style.display='block';
     closeMediaEditor();
     const hasCrop=cropTop>0.5||cropLeft>0.5||cropBottom>0.5||cropRight>0.5;
-    // Apply crop preview using wrapper+transform technique
-    // Wrapper = the visible viewport (cropped size)
-    // Video element = scaled up so only the cropped region shows
+    // Preview: just show the raw video — crop is stored as metadata and applied on playback.
+    // Do NOT apply a CSS transform to the preview; it would mislead the user into thinking
+    // the crop is baked in (causing the zoomed-in artifact reported).
     const vidPrev=document.getElementById('video-preview');
     const vidWrap=document.getElementById('video-preview-wrap');
-    if(hasCrop&&vidPrev&&vidWrap){
-      const t=cropData.top/100, l=cropData.left/100;
-      const b=cropData.bottom/100, r=cropData.right/100;
-      // What fraction of the video remains after cropping
-      const visW=1-l-r;  // e.g. crop 10% left+right => 80% remains
-      const visH=1-t-b;
-      // Scale the video up so the visible region fills 100% of the wrapper
-      const scaleX=1/visW;
-      const scaleY=1/visH;
-      // Offset so the top-left of the visible region aligns to wrapper top-left
-      const offX=(-l/visW*100).toFixed(3);
-      const offY=(-t/visH*100).toFixed(3);
-      // Size the wrapper to have the cropped aspect ratio (max 240px tall)
-      const maxH=240;
-      vidWrap.style.display='block';
-      vidWrap.style.maxHeight=maxH+'px';
-      vidWrap.style.overflow='hidden';
-      // Set video to fill wrapper then transform
-      vidPrev.style.display='block';
+    if(vidPrev){
+      // Reset any previously-applied transform so preview is clean
+      vidPrev.style.transform='';
+      vidPrev.style.transformOrigin='';
+      vidPrev.style.objectFit='contain';
+      vidPrev.style.maxHeight='240px';
       vidPrev.style.width='100%';
-      vidPrev.style.maxHeight='none';
-      vidPrev.style.objectFit='fill';
-      vidPrev.style.transform=`translate(${offX}%,${offY}%) scale(${scaleX.toFixed(4)},${scaleY.toFixed(4)})`;
-      vidPrev.style.transformOrigin='top left';
-      showToast('✓ Crop applied — preview updated');
+      vidPrev.style.display='block';
+    }
+    if(vidWrap){
+      vidWrap.style.overflow='hidden';
+      vidWrap.style.maxHeight='240px';
+      vidWrap.style.display='block';
+    }
+    if(hasCrop){
+      showToast('✓ Crop saved — will apply on playback');
       setScanBadge('✓ Video cropped — crop will apply on playback','override');
-    } else if(!hasCrop){
-      // Reset to uncropped state
-      if(vidPrev){
-        vidPrev.style.transform='';
-        vidPrev.style.objectFit='';
-        vidPrev.style.maxHeight='240px';
-        vidPrev.style.width='100%';
-      }
-      if(vidWrap){vidWrap.style.overflow='hidden';vidWrap.style.maxHeight='240px';}
+    } else {
       showToast('No crop applied');
+      setScanBadge('⚠️ Video: confirm no PHI in overlay or filename','override');
     }
     return;
   }
@@ -3228,31 +3212,43 @@ async function saveMediaEdit(){
 function expandVideo(vidId){
   const vid=document.getElementById(vidId);
   if(!vid)return;
-  // Try native fullscreen first
-  if(vid.requestFullscreen){vid.requestFullscreen();}
-  else if(vid.webkitRequestFullscreen){vid.webkitRequestFullscreen();}
-  else if(vid.webkitEnterFullscreen){vid.webkitEnterFullscreen();} // iOS Safari
-  else{
-    // Fallback: show in a modal overlay
-    const ov=document.createElement('div');
-    ov.style.cssText='position:fixed;inset:0;background:#000;z-index:9999;display:flex;align-items:center;justify-content:center;';
-    ov.onclick=()=>ov.remove();
-    const v2=document.createElement('video');
-    v2.src=vid.src;
-    v2.controls=true;
-    v2.autoplay=true;
-    v2.playsinline=true;
-    v2.style.cssText='max-width:100%;max-height:100%;';
-    // Apply same crop if any
-    if(vid.style.clipPath)v2.style.clipPath=vid.style.clipPath;
-    const closeBtn=document.createElement('button');
-    closeBtn.textContent='✕';
-    closeBtn.style.cssText='position:absolute;top:16px;right:16px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;width:36px;height:36px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;';
-    closeBtn.onclick=(e)=>{e.stopPropagation();ov.remove();};
-    ov.appendChild(v2);
-    ov.appendChild(closeBtn);
-    document.body.appendChild(ov);
-  }
+
+  // Always use a fresh overlay video element — never call fullscreen/play on the
+  // preload="metadata" thumbnail element directly. On iOS Safari, calling
+  // webkitEnterFullscreen() on a video that hasn't fully loaded media data causes
+  // a silent failure that leaves the original element frozen and unplayable.
+  // A new <video> with the same src loads fresh, autoplay works reliably.
+
+  // Strip the #t=0.5 seek hint from the src so the overlay starts from the beginning
+  const rawSrc=(vid.src||'').replace(/#t=[^&]*/,'');
+  // Carry over any crop style (clip-path) from the source element
+  const cropStyle=vid.style.clipPath?`clip-path:${vid.style.clipPath};`:'';
+
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:#000;z-index:9999;display:flex;align-items:center;justify-content:center;touch-action:none;';
+  ov.onclick=(e)=>{if(e.target===ov)ov.remove();};
+
+  const v2=document.createElement('video');
+  v2.src=rawSrc;
+  v2.controls=true;
+  v2.autoplay=true;
+  v2.playsinline=true;
+  v2.setAttribute('webkit-playsinline','');
+  v2.style.cssText=`max-width:100%;max-height:100%;${cropStyle}`;
+  // Explicit load() ensures the video fetches data even when parent was preload=metadata
+  v2.load();
+
+  const closeBtn=document.createElement('button');
+  closeBtn.textContent='✕';
+  closeBtn.style.cssText='position:absolute;top:16px;right:16px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;width:44px;height:44px;border-radius:50%;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:10;';
+  closeBtn.onclick=(e)=>{e.stopPropagation();v2.pause();ov.remove();};
+
+  ov.appendChild(v2);
+  ov.appendChild(closeBtn);
+  document.body.appendChild(ov);
+
+  // Attempt autoplay — silently ignored if browser blocks it (user can tap play)
+  v2.play().catch(()=>{});
 }
 
 function showAuthError(form,msg){
@@ -4232,6 +4228,7 @@ function renderFeed(){
       <div class="case-footer">
         <span class="cf-stat">💬 ${c.responses.length} notes</span>
         ${status==='resolved'?'<span class="cf-stat" style="color:var(--green);">✓ Resolved</span>':''}
+        ${status==='resolved'&&!c.resolvedDx&&currentUser&&c.authorId===currentUser.id?`<button class="respond-btn" style="background:var(--amberbg);color:var(--amber);border:1px solid rgba(245,158,11,.3);margin-right:6px;" onclick="event.stopPropagation();repostCase('${c.id}')">↺ Repost</button>`:''}
         <button class="respond-btn" onclick="event.stopPropagation();openCaseDetail('${c.id}')">${status==='resolved'?'View →':'View & Respond →'}</button>
       </div>`;
     feed.appendChild(div);
@@ -4663,6 +4660,33 @@ function closePostModal(){
   hidePHIAlert();
 }
 function openPostPanel(){openPostModal();}
+
+function repostCase(caseId){
+  const c=cases.find(x=>x.id===caseId);
+  if(!c)return;
+  // Open fresh (resets all state), then pre-populate
+  openPostModal();
+  const qEl=document.getElementById('q-text');
+  if(qEl) qEl.value=c.q||'';
+  const specEl=document.getElementById('spec-select');
+  if(specEl) specEl.value=c.spec||'';
+  const container=document.getElementById('dx-inputs');
+  if(container&&c.ddx&&c.ddx.length){
+    container.innerHTML='';
+    c.ddx.forEach(dx=>{
+      const row=document.createElement('div');
+      row.className='dx-input-row';
+      row.innerHTML=`<input type="text" value="${String(dx).replace(/"/g,'&quot;').substring(0,80)}" placeholder="Diagnosis option"><button class="remove-btn" onclick="removeDx(this)">×</button>`;
+      container.appendChild(row);
+    });
+  }
+  if(c.hasECG){
+    const scanStatus=document.getElementById('phi-scan-status');
+    if(scanStatus) scanStatus.innerHTML='<span class="scan-badge override">⚠️ Original media not carried over — please re-upload the ECG or video</span>';
+  }
+  showToast('Case pre-filled — re-upload media if needed, then submit');
+}
+
 function openRespondPanel(){/* respond lives in case detail overlay */}
 function isMobile(){return window.innerWidth<=900;}
 function mobileNav(tab,el){
