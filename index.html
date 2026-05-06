@@ -2603,39 +2603,49 @@ function videoCropStyle(crop){
   return '';
 }
 
-// Apply crop styles to all video wrappers that have data-crop attributes.
-// Called after renderFeed and after renderCaseDetail.
-// Uses absolute positioning: wrapper clips, video is oversized and offset.
+// Apply crop to all video wrappers with data-crop attributes.
+// Uses uniform scale derived from native video dimensions so aspect ratio is preserved.
+// Called after renderFeed (via rAF) and after case detail renders.
 function applyVideoCrops(){
   document.querySelectorAll('[data-crop]').forEach(wrapper=>{
     try{
       const crop=JSON.parse(wrapper.dataset.crop);
       const vid=wrapper.querySelector('video');
       if(!vid)return;
-      const t=Math.max(0,crop.top||0)/100;
-      const r=Math.max(0,crop.right||0)/100;
-      const b=Math.max(0,crop.bottom||0)/100;
-      const l=Math.max(0,crop.left||0)/100;
-      if(!t&&!r&&!b&&!l){
-        vid.style.position='';vid.style.width='100%';vid.style.height='100%';
-        vid.style.left='';vid.style.top='';vid.style.objectFit='contain';
+      const t=(crop.top||0)/100, l=(crop.left||0)/100;
+      const b=(crop.bottom||0)/100, r=(crop.right||0)/100;
+      if(!t&&!l&&!b&&!r){
+        // No crop — reset to normal
+        vid.style.cssText='width:100%;height:100%;object-fit:contain;position:relative;';
         return;
       }
-      const visW=1-l-r||1;
-      const visH=1-t-b||1;
-      // Video fills 1/visW of the wrapper width and 1/visH of height
-      // then offset so the crop region is top-left aligned
+      const visW=Math.max(0.01,1-l-r), visH=Math.max(0.01,1-t-b);
+      // Use native video dimensions for correct AR; fall back to 16:9 if not loaded yet
+      // If metadata not loaded yet, re-run once it arrives (portrait videos especially)
+      if(!vid._cropListenerAdded){
+        vid._cropListenerAdded=true;
+        vid.addEventListener('loadedmetadata',()=>applyVideoCrops(),{once:true});
+      }
+      const nw=vid.videoWidth||1280;
+      const nh=vid.videoHeight||720;
+      const visNW=nw*visW, visNH=nh*visH; // visible region in native px
+      const cw=wrapper.offsetWidth||1, ch=wrapper.offsetHeight||1;
+      // Uniform scale so visible region fills container without distortion
+      const scale=Math.min(cw/visNW, ch/visNH);
+      const rw=Math.round(nw*scale), rh=Math.round(nh*scale);
+      const offX=Math.round(-(l*nw*scale));
+      const offY=Math.round(-(t*nh*scale));
       wrapper.style.position='relative';
       wrapper.style.overflow='hidden';
       vid.style.position='absolute';
-      vid.style.width=(100/visW).toFixed(3)+'%';
-      vid.style.height=(100/visH).toFixed(3)+'%';
-      vid.style.left=(-(l/visW*100)).toFixed(3)+'%';
-      vid.style.top=(-(t/visH*100)).toFixed(3)+'%';
+      vid.style.width=rw+'px';
+      vid.style.height=rh+'px';
+      vid.style.left=offX+'px';
+      vid.style.top=offY+'px';
       vid.style.objectFit='fill';
-      vid.style.maxHeight='none';
       vid.style.maxWidth='none';
-    }catch(e){}
+      vid.style.maxHeight='none';
+    }catch(e){console.warn('applyVideoCrops:',e);}
   });
 }
 function videoCropWrapStyle(crop){
@@ -3459,35 +3469,42 @@ function expandVideo(vidId){
   closeBtn.style.cssText='position:absolute;top:16px;right:16px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;width:44px;height:44px;border-radius:50%;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:10;';
   closeBtn.onclick=(e)=>{e.stopPropagation();v2.pause();ov.remove();};
 
-  // Apply crop using a wrapper div so aspect ratio is preserved correctly
+  // Apply crop using a wrapper div with uniform scale — same math as applyVideoCrops
   const vidWrap=document.createElement('div');
-  vidWrap.style.cssText='position:relative;overflow:hidden;max-width:100%;max-height:100%;display:flex;align-items:center;justify-content:center;';
+  vidWrap.style.cssText='position:relative;overflow:hidden;';
   if(cropJson){
     try{
       const crop=JSON.parse(cropJson);
-      const t=Math.max(0,crop.top||0)/100;
-      const r=Math.max(0,crop.right||0)/100;
-      const b=Math.max(0,crop.bottom||0)/100;
-      const l=Math.max(0,crop.left||0)/100;
-      if(t||r||b||l){
-        const visW=1-l-r||1, visH=1-t-b||1;
-        // Size wrapper to the cropped aspect; video absolutely fills 1/vis* of it
-        const vw=window.innerWidth*0.95, vh=window.innerHeight*0.9;
-        const scale=Math.min(vw,vh);
-        vidWrap.style.position='relative';
-        vidWrap.style.overflow='hidden';
-        vidWrap.style.width=(scale*visW).toFixed(0)+'px';
-        vidWrap.style.height=(scale*visH).toFixed(0)+'px';
-        v2.style.position='absolute';
-        v2.style.width=(100/visW).toFixed(3)+'%';
-        v2.style.height=(100/visH).toFixed(3)+'%';
-        v2.style.left=(-(l/visW*100)).toFixed(3)+'%';
-        v2.style.top=(-(t/visH*100)).toFixed(3)+'%';
-        v2.style.objectFit='fill';
-        v2.style.maxWidth='none';
-        v2.style.maxHeight='none';
+      const t=(crop.top||0)/100, l=(crop.left||0)/100;
+      const b=(crop.bottom||0)/100, r=(crop.right||0)/100;
+      if(t||l||b||r){
+        const visW=Math.max(0.01,1-l-r), visH=Math.max(0.01,1-t-b);
+        // Wait for video metadata then apply crop
+        const applyCrop=()=>{
+          const nw=v2.videoWidth||1280, nh=v2.videoHeight||720;
+          const maxW=window.innerWidth*0.95, maxH=window.innerHeight*0.88;
+          const visNW=nw*visW, visNH=nh*visH;
+          const scale=Math.min(maxW/visNW, maxH/visNH);
+          const rw=Math.round(nw*scale), rh=Math.round(nh*scale);
+          vidWrap.style.width=Math.round(visNW*scale)+'px';
+          vidWrap.style.height=Math.round(visNH*scale)+'px';
+          v2.style.position='absolute';
+          v2.style.width=rw+'px';
+          v2.style.height=rh+'px';
+          v2.style.left=Math.round(-(l*nw*scale))+'px';
+          v2.style.top=Math.round(-(t*nh*scale))+'px';
+          v2.style.objectFit='fill';
+          v2.style.maxWidth='none';
+          v2.style.maxHeight='none';
+        };
+        if(v2.videoWidth>0){applyCrop();}
+        else{v2.addEventListener('loadedmetadata',applyCrop,{once:true});}
       }
     }catch(e){}
+  } else {
+    // No crop — let video fill naturally
+    v2.style.maxWidth='95vw';
+    v2.style.maxHeight='88vh';
   }
   vidWrap.appendChild(v2);
   ov.appendChild(vidWrap);
