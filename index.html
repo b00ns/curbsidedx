@@ -65,6 +65,23 @@ window._supabaseReady = true;
   animation: none !important;
 }
 
+/* ── PULL TO REFRESH ── */
+.ptr-indicator{
+  position:fixed;top:0;left:0;right:0;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  height:0;overflow:hidden;z-index:999;
+  background:var(--bg2);border-bottom:1px solid var(--border);
+  transition:height .2s ease;pointer-events:none;
+  font-size:12px;color:var(--text2);font-family:var(--font-sans);
+}
+.ptr-indicator.ptr-ready{color:var(--accent);}
+.ptr-indicator.ptr-loading{height:44px;}
+.ptr-spinner{
+  width:16px;height:16px;border:2px solid var(--border2);
+  border-top-color:var(--accent);border-radius:50%;
+  animation:ptr-spin .6s linear infinite;flex-shrink:0;
+}
+@keyframes ptr-spin{to{transform:rotate(360deg);}}
 /* ── LIGHT MODE (default) ── */
 html[data-theme="light"] {
   --bg: #f7f6f2;
@@ -1636,6 +1653,10 @@ html[data-theme="dark"] .theme-toggle-thumb{transform:translateX(14px);}
 <div class="rp-drawer" id="rp-drawer"><div class="rp-drawer-close" onclick="closeRPDrawer()">✕</div></div>
 
 <!-- SHELL -->
+<div id="ptr-indicator" class="ptr-indicator" aria-hidden="true">
+  <div class="ptr-spinner" id="ptr-spinner"></div>
+  <span id="ptr-label">Pull to refresh</span>
+</div>
 <div class="shell">
   <div class="sidebar">
     <div class="logo-area"><div class="logo"><span class="logo-dot"></span>CurbsideDx</div><div class="logo-sub">"Life is a differential diagnosis"</div></div>
@@ -2615,50 +2636,40 @@ function applyVideoCrops(){
       const t=(crop.top||0)/100, l=(crop.left||0)/100;
       const b=(crop.bottom||0)/100, r=(crop.right||0)/100;
       if(!t&&!l&&!b&&!r){
-        // No crop — reset to defaults
         vid.style.cssText='width:100%;max-height:220px;object-fit:contain;position:relative;display:block;background:#111;';
+        wrapper.style.width='';wrapper.style.height='';wrapper.style.margin='';
         return;
       }
-      // Re-run when native dimensions arrive (portrait videos load metadata after paint)
+      // Re-run once native dimensions load (portrait/4K videos)
       if(!vid._cropListenerAdded){
         vid._cropListenerAdded=true;
         vid.addEventListener('loadedmetadata',()=>applyVideoCrops(),{once:true});
       }
       const visW=Math.max(0.01,1-l-r), visH=Math.max(0.01,1-t-b);
       const nw=vid.videoWidth||1280, nh=vid.videoHeight||720;
-      const visNW=nw*visW, visNH=nh*visH; // visible region in native px
+      const visNW=nw*visW, visNH=nh*visH;
 
-      // Scale: fit visible region into container width, let height be natural
-      // (don't constrain by wrapper height — wrapper will size to the result)
-      const cw=wrapper.offsetWidth||600;
-      const scale=cw/visNW;  // fill full width, height follows AR naturally
-      const rw=Math.round(nw*scale), rh=Math.round(nh*scale);
-      const cropW=Math.round(visNW*scale); // == cw
-      const cropH=Math.round(visNH*scale);
-
-      // Cap height at 280px on desktop (>900px wide), 60vw on mobile
+      // Use PARENT width (the card) not wrapper width for scale calculation
+      const cardW=(wrapper.parentElement||wrapper).offsetWidth||600;
       const isMobile=window.innerWidth<=900;
-      const maxH=isMobile ? Math.round(window.innerWidth*0.6) : 280;
-      let finalScale=scale;
-      if(cropH>maxH){
-        finalScale=scale*(maxH/cropH);
-      }
-      const frw=Math.round(nw*finalScale), frh=Math.round(nh*finalScale);
-      const fcropW=Math.round(visNW*finalScale), fcropH=Math.round(visNH*finalScale);
+      const maxH=isMobile?Math.round(window.innerWidth*0.75):280;
+      // Scale so visible region fits within card width and maxH
+      const scale=Math.min(cardW/visNW, maxH/visNH);
+      const frw=Math.round(nw*scale), frh=Math.round(nh*scale);
+      const fcropW=Math.round(visNW*scale), fcropH=Math.round(visNH*scale);
 
-      // Set wrapper to exact cropped size — video positioned inside, offset to show crop region
+      // Wrapper = exactly the cropped size, centered in the card
       wrapper.style.position='relative';
       wrapper.style.overflow='hidden';
-      wrapper.style.width='100%';
+      wrapper.style.width=fcropW+'px';
       wrapper.style.height=fcropH+'px';
+      wrapper.style.margin='0 auto 12px';
+      // Video positioned inside, offset to show only the crop region
       vid.style.position='absolute';
       vid.style.width=frw+'px';
       vid.style.height=frh+'px';
-      // Center horizontally: offset = crop-left offset + half the spare width
-      const leftOff=Math.round(-(l*nw*finalScale));
-      const spareW=fcropW-frw; // always <= 0, left aligns naturally
-      vid.style.left=leftOff+'px';
-      vid.style.top=Math.round(-(t*nh*finalScale))+'px';
+      vid.style.left=Math.round(-(l*nw*scale))+'px';
+      vid.style.top=Math.round(-(t*nh*scale))+'px';
       vid.style.objectFit='fill';
       vid.style.maxWidth='none';
       vid.style.maxHeight='none';
@@ -2735,44 +2746,55 @@ function openMediaEditor(){
     edVid.load(); // force load on mobile where autoload may be suppressed
 
     const initCropOverlay=(vw,vh)=>{
-      const stageEl=document.getElementById('me-stage');
-      const maxW=(stageEl.clientWidth||window.innerWidth)-40;
-      const maxH=(stageEl.clientHeight||window.innerHeight*0.7)-80;
-      meScale=Math.min(1,maxW/vw,maxH/vh);
-      if(!isFinite(meScale)||meScale<=0)meScale=1;
-      meCanvasW=Math.round(vw*meScale);
-      meCanvasH=Math.round(vh*meScale);
-      edVid.style.width=meCanvasW+'px';
-      edVid.style.height=meCanvasH+'px';
-      meCrop={x:0,y:0,w:meCanvasW,h:meCanvasH};
-      if(window._currentVideoCrop){
-        const ec=window._currentVideoCrop;
-        meCrop={
-          x:Math.round(ec.left/100*meCanvasW),
-          y:Math.round(ec.top/100*meCanvasH),
-          w:Math.round((1-(ec.left+ec.right)/100)*meCanvasW),
-          h:Math.round((1-(ec.top+ec.bottom)/100)*meCanvasH)
-        };
-      }
-      const cropOvl=document.getElementById('me-crop-overlay');
-      cropOvl.style.width=meCanvasW+'px';
-      cropOvl.style.height=meCanvasH+'px';
-      cropOvl.style.display='block';
-      // Remove old crop canvas so it rebuilds at correct size
-      const oldCC=document.getElementById('me-crop-canvas');
-      if(oldCC)oldCC.remove();
-      _cropCanvas=null;_cropCtx=null;
-      meRenderCropUI();
-      if(!window._meCropWired){window._meCropWired=true;meWireCropOverlay();}
-      // Wire video erase now that we have real canvas dimensions
-      if(!window._videoEraseWired){window._videoEraseWired=true;meWireVideoErase();}
-      meRedrawVideoEraseOverlay();
+      // Poll until the stage has real layout dimensions — identical to _meWaitForLayout
+      // but scoped to video so we don't call it before the overlay is visible.
+      // On mobile the overlay animates in and clientWidth/Height are 0 until painted.
+      const doInit=(attempts=0)=>{
+        const stageEl=document.getElementById('me-stage');
+        const sw=stageEl?stageEl.clientWidth:0;
+        const sh=stageEl?stageEl.clientHeight:0;
+        if((sw<10||sh<10)&&attempts<40){
+          // Not painted yet — retry up to 40×16ms = 640ms
+          setTimeout(()=>doInit(attempts+1),16);
+          return;
+        }
+        const maxW=(sw||window.innerWidth)-40;
+        const maxH=(sh||window.innerHeight*0.7)-80;
+        meScale=Math.min(1,maxW/vw,maxH/vh);
+        if(!isFinite(meScale)||meScale<=0)meScale=1;
+        meCanvasW=Math.round(vw*meScale);
+        meCanvasH=Math.round(vh*meScale);
+        edVid.style.width=meCanvasW+'px';
+        edVid.style.height=meCanvasH+'px';
+        meCrop={x:0,y:0,w:meCanvasW,h:meCanvasH};
+        if(window._currentVideoCrop){
+          const ec=window._currentVideoCrop;
+          meCrop={
+            x:Math.round(ec.left/100*meCanvasW),
+            y:Math.round(ec.top/100*meCanvasH),
+            w:Math.round((1-(ec.left+ec.right)/100)*meCanvasW),
+            h:Math.round((1-(ec.top+ec.bottom)/100)*meCanvasH)
+          };
+        }
+        const cropOvl=document.getElementById('me-crop-overlay');
+        cropOvl.style.width=meCanvasW+'px';
+        cropOvl.style.height=meCanvasH+'px';
+        cropOvl.style.display='block';
+        const oldCC=document.getElementById('me-crop-canvas');
+        if(oldCC)oldCC.remove();
+        _cropCanvas=null;_cropCtx=null;
+        meRenderCropUI();
+        if(!window._meCropWired){window._meCropWired=true;meWireCropOverlay();}
+        if(!window._videoEraseWired){window._videoEraseWired=true;meWireVideoErase();}
+        meRedrawVideoEraseOverlay();
+      };
+      doInit();
     };
 
     const onMeta=()=>{
       const vw=edVid.videoWidth||0, vh=edVid.videoHeight||0;
       if(vw>0&&vh>0){initCropOverlay(vw,vh);}
-      else{initCropOverlay(1280,720);} // fallback dimensions
+      else{initCropOverlay(1280,720);}
     };
 
     if(edVid.videoWidth>0){
@@ -2785,7 +2807,7 @@ function openMediaEditor(){
           console.warn('Video metadata timeout — using fallback dimensions');
           onMeta();
         }
-      },2000);
+      },3000);
     }
 
     document.getElementById('me-hint').textContent='Drag handles to crop · Switch to Erase to black out PHI overlays';
@@ -6988,6 +7010,68 @@ function toggleTheme(){
   // Ensure body scroll is not locked on initial load (no modal open)
   // On mobile, body needs overflow:auto so the feed is scrollable
   if(document.body.style.overflow==='hidden'){document.body.style.overflow='';}
+
+  // ── PULL TO REFRESH (mobile only) ──
+  (function initPTR(){
+    const THRESHOLD=72;    // px to pull before triggering
+    const MAX_PULL=110;    // px max visual pull
+    let startY=0,pulling=false,triggered=false;
+
+    const indicator=document.getElementById('ptr-indicator');
+    const label=document.getElementById('ptr-label');
+
+    // Only active on mobile breakpoint and only when feed is scrolled to top
+    function isMobilePTR(){return window.innerWidth<=900;}
+
+    document.addEventListener('touchstart',e=>{
+      if(!isMobilePTR())return;
+      const feed=document.getElementById('feed');
+      if(!feed||feed.scrollTop>2)return; // only trigger at very top
+      if(e.touches.length!==1)return;
+      startY=e.touches[0].clientY;
+      pulling=true;
+      triggered=false;
+    },{passive:true});
+
+    document.addEventListener('touchmove',e=>{
+      if(!pulling)return;
+      const dy=e.touches[0].clientY-startY;
+      if(dy<=0){pulling=false;resetIndicator();return;}
+      const pull=Math.min(dy,MAX_PULL);
+      const h=Math.round(pull*0.4); // indicator height grows with pull
+      if(indicator){
+        indicator.style.height=h+'px';
+        indicator.classList.toggle('ptr-ready',dy>=THRESHOLD);
+        if(label) label.textContent=dy>=THRESHOLD?'Release to refresh':'Pull to refresh';
+      }
+    },{passive:true});
+
+    document.addEventListener('touchend',async e=>{
+      if(!pulling)return;
+      pulling=false;
+      const dy=e.changedTouches[0].clientY-startY;
+      if(dy>=THRESHOLD&&!triggered){
+        triggered=true;
+        if(indicator){indicator.style.height='44px';indicator.classList.add('ptr-loading');}
+        if(label) label.textContent='Refreshing…';
+        try{
+          if(typeof loadCasesFromDB==='function') await loadCasesFromDB();
+          if(typeof renderFeed==='function') renderFeed();
+          if(typeof renderLeaderboard==='function') renderLeaderboard();
+          if(typeof updateStatCounters==='function') updateStatCounters();
+        }catch(err){console.warn('PTR refresh error:',err);}
+        setTimeout(resetIndicator,600);
+      } else {
+        resetIndicator();
+      }
+    },{passive:true});
+
+    function resetIndicator(){
+      if(indicator){indicator.style.height='0';indicator.classList.remove('ptr-ready','ptr-loading');}
+      if(label) label.textContent='Pull to refresh';
+      pulling=false;
+    }
+  })();
 
   // Wire file input - simple direct approach
   document.addEventListener('change', function(e){
