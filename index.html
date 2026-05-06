@@ -2596,21 +2596,47 @@ let meCropDrag=null; // {handle, startX,startY, origCrop}
 // ── VIDEO CROP HELPERS ────────────────────────────────────────────────
 // crop = {top, left, right, bottom} as percentages 0-100
 function videoCropStyle(crop){
-  // Returns the CSS to apply directly to the <video> element to show only the cropped region.
-  // Uses object-fit:fill + translate + scale so the cropped region fills the container.
-  if(!crop)return '';
-  const t=Math.max(0,crop.top||0);
-  const r=Math.max(0,crop.right||0);
-  const b=Math.max(0,crop.bottom||0);
-  const l=Math.max(0,crop.left||0);
-  if(!t&&!r&&!b&&!l)return '';
-  const visW=(100-l-r)/100||1;
-  const visH=(100-t-b)/100||1;
-  const scaleX=(1/visW).toFixed(4);
-  const scaleY=(1/visH).toFixed(4);
-  const offX=(-(l/100/visW)*100).toFixed(2);
-  const offY=(-(t/100/visH)*100).toFixed(2);
-  return `object-fit:fill;transform:translate(${offX}%,${offY}%) scale(${scaleX},${scaleY});transform-origin:top left;`;
+  // NOTE: This function is intentionally unused for rendering.
+  // Video crop is applied via applyVideoCrops() after the DOM is built,
+  // using absolute positioning on the video within an overflow:hidden wrapper.
+  // Kept for backward compat with any direct callers.
+  return '';
+}
+
+// Apply crop styles to all video wrappers that have data-crop attributes.
+// Called after renderFeed and after renderCaseDetail.
+// Uses absolute positioning: wrapper clips, video is oversized and offset.
+function applyVideoCrops(){
+  document.querySelectorAll('[data-crop]').forEach(wrapper=>{
+    try{
+      const crop=JSON.parse(wrapper.dataset.crop);
+      const vid=wrapper.querySelector('video');
+      if(!vid)return;
+      const t=Math.max(0,crop.top||0)/100;
+      const r=Math.max(0,crop.right||0)/100;
+      const b=Math.max(0,crop.bottom||0)/100;
+      const l=Math.max(0,crop.left||0)/100;
+      if(!t&&!r&&!b&&!l){
+        vid.style.position='';vid.style.width='100%';vid.style.height='100%';
+        vid.style.left='';vid.style.top='';vid.style.objectFit='contain';
+        return;
+      }
+      const visW=1-l-r||1;
+      const visH=1-t-b||1;
+      // Video fills 1/visW of the wrapper width and 1/visH of height
+      // then offset so the crop region is top-left aligned
+      wrapper.style.position='relative';
+      wrapper.style.overflow='hidden';
+      vid.style.position='absolute';
+      vid.style.width=(100/visW).toFixed(3)+'%';
+      vid.style.height=(100/visH).toFixed(3)+'%';
+      vid.style.left=(-(l/visW*100)).toFixed(3)+'%';
+      vid.style.top=(-(t/visH*100)).toFixed(3)+'%';
+      vid.style.objectFit='fill';
+      vid.style.maxHeight='none';
+      vid.style.maxWidth='none';
+    }catch(e){}
+  });
 }
 function videoCropWrapStyle(crop){
   // Expand wrapper to compensate so video fills its space after clipping
@@ -3388,8 +3414,9 @@ function expandVideo(vidId){
 
   // Strip the #t=0.5 seek hint from the src so the overlay starts from the beginning
   const rawSrc=(vid.src||'').replace(/#t=[^&]*/,'');
-  // Carry over crop style from the source element
-  const cropStyle=vid.style.clipPath?`clip-path:${vid.style.clipPath};`:'';
+  // Carry over crop from data-crop on the wrapper (the video element itself has no crop style)
+  const cropWrapper=vid.closest('[data-crop]');
+  const cropJson=cropWrapper?.dataset.crop||'';
   // Carry over erase rects stored as data attribute on the video element
   const eraseRectsJson=vid.dataset.eraseRects||'';
 
@@ -3406,7 +3433,7 @@ function expandVideo(vidId){
   v2.autoplay=true;
   v2.playsinline=true;
   v2.setAttribute('webkit-playsinline','');
-  v2.style.cssText=`max-width:100%;max-height:100%;${cropStyle}`;
+  v2.style.cssText='width:100%;height:100%;object-fit:contain;';
   // Explicit load() ensures the video fetches data even when parent was preload=metadata
   v2.load();
 
@@ -3432,7 +3459,38 @@ function expandVideo(vidId){
   closeBtn.style.cssText='position:absolute;top:16px;right:16px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;width:44px;height:44px;border-radius:50%;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:10;';
   closeBtn.onclick=(e)=>{e.stopPropagation();v2.pause();ov.remove();};
 
-  ov.appendChild(v2);
+  // Apply crop using a wrapper div so aspect ratio is preserved correctly
+  const vidWrap=document.createElement('div');
+  vidWrap.style.cssText='position:relative;overflow:hidden;max-width:100%;max-height:100%;display:flex;align-items:center;justify-content:center;';
+  if(cropJson){
+    try{
+      const crop=JSON.parse(cropJson);
+      const t=Math.max(0,crop.top||0)/100;
+      const r=Math.max(0,crop.right||0)/100;
+      const b=Math.max(0,crop.bottom||0)/100;
+      const l=Math.max(0,crop.left||0)/100;
+      if(t||r||b||l){
+        const visW=1-l-r||1, visH=1-t-b||1;
+        // Size wrapper to the cropped aspect; video absolutely fills 1/vis* of it
+        const vw=window.innerWidth*0.95, vh=window.innerHeight*0.9;
+        const scale=Math.min(vw,vh);
+        vidWrap.style.position='relative';
+        vidWrap.style.overflow='hidden';
+        vidWrap.style.width=(scale*visW).toFixed(0)+'px';
+        vidWrap.style.height=(scale*visH).toFixed(0)+'px';
+        v2.style.position='absolute';
+        v2.style.width=(100/visW).toFixed(3)+'%';
+        v2.style.height=(100/visH).toFixed(3)+'%';
+        v2.style.left=(-(l/visW*100)).toFixed(3)+'%';
+        v2.style.top=(-(t/visH*100)).toFixed(3)+'%';
+        v2.style.objectFit='fill';
+        v2.style.maxWidth='none';
+        v2.style.maxHeight='none';
+      }
+    }catch(e){}
+  }
+  vidWrap.appendChild(v2);
+  ov.appendChild(vidWrap);
   ov.appendChild(closeBtn);
   document.documentElement.appendChild(ov);
 
@@ -4210,9 +4268,10 @@ function renderECGThumb(c){
     const _eraseRects=c.videoCrop&&c.videoCrop.eraseRects?c.videoCrop.eraseRects:[];
     const _eraseAttr=_eraseRects.length?JSON.stringify(_eraseRects).replace(/"/g,'&quot;'):'';
     const _eraseOvl=renderVideoEraseOverlay(_eraseRects);
-    return`<div class="case-video-wrap" style="overflow:hidden;cursor:zoom-in;position:relative;" onclick="event.stopPropagation();expandVideo('${vid}')">
+    const _cropAttr=c.videoCrop?JSON.stringify(c.videoCrop).replace(/"/g,'&quot;'):'';
+    return`<div class="case-video-wrap" style="overflow:hidden;cursor:zoom-in;position:relative;height:220px;" ${_cropAttr?`data-crop="${_cropAttr}"`:''} onclick="event.stopPropagation();expandVideo('${vid}')">
       <video id="${vid}" src="${c.videoUrl}#t=0.5" muted playsinline preload="metadata"
-        style="width:100%;height:220px;display:block;${cropS||'object-fit:contain;'};background:#111;pointer-events:none;"
+        style="width:100%;height:100%;display:block;object-fit:contain;background:#111;pointer-events:none;"
         data-erase-rects="${_eraseAttr}"
         onloadeddata="this.currentTime=0.5"></video>
       ${_eraseOvl}
@@ -4428,6 +4487,7 @@ function renderFeed(){
     feed.appendChild(div);
   });
   updateSpecCounts();
+  requestAnimationFrame(applyVideoCrops);
 }
 
 function selectCase(id,el){
@@ -5492,9 +5552,9 @@ function openCaseDetail(id){
           <span>De-identified ✓</span>
         </div>
       </div>
-      <div class="cd-video-player-wrap" style="overflow:hidden;position:relative;">
+      <div class="cd-video-player-wrap" style="overflow:hidden;position:relative;" ${c.videoCrop?`data-crop="${JSON.stringify(c.videoCrop).replace(/"/g,'&quot;')}"`:''}">
         <video id="${vidId}" class="cd-video-player" src="${c.videoUrl}" controls playsinline preload="metadata"
-          style="width:100%;height:100%;${c.videoCrop?videoCropStyle(c.videoCrop):'object-fit:contain;'}"
+          style="width:100%;object-fit:contain;"
           data-erase-rects="${c.videoCrop&&c.videoCrop.eraseRects?JSON.stringify(c.videoCrop.eraseRects).replace(/"/g,'&quot;'):''}"
           >
         </video>
@@ -5503,6 +5563,7 @@ function openCaseDetail(id){
       </div>
     </div>`;
     ecgBlock.style.display='block';
+    requestAnimationFrame(applyVideoCrops);
   } else if(c.hasECG||c.ecgImageUrl){
     if(c.ecgImageUrl){
       ecgBlock.innerHTML=`<div class="cd-ecg-block">
