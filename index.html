@@ -3487,14 +3487,14 @@ function expandVideo(vidId){
   ov.onclick=(e)=>{if(e.target===ov)ov.remove();};
 
   const v2=document.createElement('video');
-  v2.src=rawSrc;
   v2.controls=true;
   v2.autoplay=true;
   v2.playsinline=true;
   v2.setAttribute('webkit-playsinline','');
   v2.style.cssText='width:100%;height:100%;object-fit:contain;';
-  // Explicit load() ensures the video fetches data even when parent was preload=metadata
-  v2.load();
+  // Set src AFTER attaching listeners — on mobile Safari load() can fire
+  // loadedmetadata synchronously before a listener added afterward would catch it.
+  // We attach first, then set src + call load().
 
   // Render erase overlay boxes inside the zoom modal
   if(eraseRectsJson){
@@ -3528,9 +3528,12 @@ function expandVideo(vidId){
       const b=(crop.bottom||0)/100, r=(crop.right||0)/100;
       if(t||l||b||r){
         const visW=Math.max(0.01,1-l-r), visH=Math.max(0.01,1-t-b);
-        // Wait for video metadata then apply crop
+        let cropApplied=false;
         const applyCrop=()=>{
-          const nw=v2.videoWidth||1280, nh=v2.videoHeight||720;
+          if(cropApplied)return; // only run once
+          if(!v2.videoWidth||!v2.videoHeight)return; // dims not ready yet
+          cropApplied=true;
+          const nw=v2.videoWidth, nh=v2.videoHeight;
           const maxW=window.innerWidth*0.95, maxH=window.innerHeight*0.88;
           const visNW=nw*visW, visNH=nh*visH;
           const scale=Math.min(maxW/visNW, maxH/visNH);
@@ -3546,8 +3549,11 @@ function expandVideo(vidId){
           v2.style.maxWidth='none';
           v2.style.maxHeight='none';
         };
-        if(v2.videoWidth>0){applyCrop();}
-        else{v2.addEventListener('loadedmetadata',applyCrop,{once:true});}
+        // Attach listeners BEFORE setting src so we never miss the event
+        v2.addEventListener('loadedmetadata', applyCrop, {once:true});
+        v2.addEventListener('loadeddata', applyCrop, {once:true});
+        // Fallback: if neither fires within 2s, try reading dims directly
+        setTimeout(()=>{ if(!cropApplied){ applyCrop(); }}, 2000);
       }
     }catch(e){}
   } else {
@@ -3559,6 +3565,10 @@ function expandVideo(vidId){
   ov.appendChild(vidWrap);
   ov.appendChild(closeBtn);
   document.documentElement.appendChild(ov);
+
+  // Set src and load AFTER listeners are attached
+  v2.src=rawSrc;
+  v2.load();
 
   // Attempt autoplay — silently ignored if browser blocks it (user can tap play)
   v2.play().catch(()=>{});
