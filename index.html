@@ -3552,8 +3552,13 @@ function expandVideo(vidId){
         // Attach listeners BEFORE setting src so we never miss the event
         v2.addEventListener('loadedmetadata', applyCrop, {once:true});
         v2.addEventListener('loadeddata', applyCrop, {once:true});
-        // Fallback: if neither fires within 2s, try reading dims directly
-        setTimeout(()=>{ if(!cropApplied){ applyCrop(); }}, 2000);
+        v2.addEventListener('canplay', applyCrop, {once:true});
+        // Fallback poll: check every 200ms for up to 3s until dims are available
+        const pollCrop=setInterval(()=>{
+          if(cropApplied){clearInterval(pollCrop);return;}
+          if(v2.videoWidth>0&&v2.videoHeight>0){clearInterval(pollCrop);applyCrop();}
+        },200);
+        setTimeout(()=>clearInterval(pollCrop),3000);
       }
     }catch(e){}
   } else {
@@ -3990,7 +3995,7 @@ async function handleUpload(input){
       vidPreview.style.display='block';
       const vpWrap=document.getElementById('video-preview-wrap');if(vpWrap)vpWrap.style.display='block';
     }
-    if(imagePreview)imgPreview.style.display='none';
+    if(imgPreview)imgPreview.style.display='none';
     if(videoWarning)videoWarning.classList.add('show');
 
     // Scrub PHI from filename (warn if suspicious)
