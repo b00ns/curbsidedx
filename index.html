@@ -3529,15 +3529,17 @@ function expandVideo(vidId){
       if(t||l||b||r){
         const visW=Math.max(0.01,1-l-r), visH=Math.max(0.01,1-t-b);
         let cropApplied=false;
-        const applyCrop=()=>{
-          if(cropApplied)return; // only run once
-          if(!v2.videoWidth||!v2.videoHeight)return; // dims not ready yet
+        const applyCrop=(source)=>{
+          console.log('[expandVideo] applyCrop called from:',source,'videoWidth:',v2.videoWidth,'videoHeight:',v2.videoHeight,'cropApplied:',cropApplied);
+          if(cropApplied)return;
+          if(!v2.videoWidth||!v2.videoHeight){console.log('[expandVideo] dims not ready yet, skipping');return;}
           cropApplied=true;
           const nw=v2.videoWidth, nh=v2.videoHeight;
           const maxW=window.innerWidth*0.95, maxH=window.innerHeight*0.88;
           const visNW=nw*visW, visNH=nh*visH;
           const scale=Math.min(maxW/visNW, maxH/visNH);
           const rw=Math.round(nw*scale), rh=Math.round(nh*scale);
+          console.log('[expandVideo] applying crop: nw=',nw,'nh=',nh,'scale=',scale,'rw=',rw,'rh=',rh,'vidWrap=',vidWrap);
           vidWrap.style.width=Math.round(visNW*scale)+'px';
           vidWrap.style.height=Math.round(visNH*scale)+'px';
           v2.style.position='absolute';
@@ -3548,17 +3550,23 @@ function expandVideo(vidId){
           v2.style.objectFit='fill';
           v2.style.maxWidth='none';
           v2.style.maxHeight='none';
+          console.log('[expandVideo] crop applied successfully');
         };
-        // Attach listeners BEFORE setting src so we never miss the event
-        v2.addEventListener('loadedmetadata', applyCrop, {once:true});
-        v2.addEventListener('loadeddata', applyCrop, {once:true});
-        v2.addEventListener('canplay', applyCrop, {once:true});
-        // Fallback poll: check every 200ms for up to 3s until dims are available
+        console.log('[expandVideo] attaching listeners, cropJson:',cropJson,'visW:',visW,'visH:',visH);
+        v2.addEventListener('loadedmetadata',()=>applyCrop('loadedmetadata'),{once:true});
+        v2.addEventListener('loadeddata',()=>applyCrop('loadeddata'),{once:true});
+        v2.addEventListener('canplay',()=>applyCrop('canplay'),{once:true});
+        v2.addEventListener('canplaythrough',()=>applyCrop('canplaythrough'),{once:true});
+        // Fallback poll every 100ms for up to 5s
         const pollCrop=setInterval(()=>{
           if(cropApplied){clearInterval(pollCrop);return;}
-          if(v2.videoWidth>0&&v2.videoHeight>0){clearInterval(pollCrop);applyCrop();}
-        },200);
-        setTimeout(()=>clearInterval(pollCrop),3000);
+          console.log('[expandVideo] poll: videoWidth=',v2.videoWidth,'videoHeight=',v2.videoHeight,'readyState=',v2.readyState);
+          if(v2.videoWidth>0&&v2.videoHeight>0){clearInterval(pollCrop);applyCrop('poll');}
+        },100);
+        setTimeout(()=>{
+          clearInterval(pollCrop);
+          if(!cropApplied) console.log('[expandVideo] TIMEOUT — crop never applied, videoWidth=',v2.videoWidth,'readyState=',v2.readyState);
+        },5000);
       }
     }catch(e){}
   } else {
