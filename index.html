@@ -2651,6 +2651,18 @@ function applyVideoCrops(){
         vid._cropListenerAdded=true;
         vid.addEventListener('loadedmetadata',()=>applyVideoCrops(),{once:true});
       }
+      // Guard against iOS's OWN native fullscreen button (part of the browser's
+      // built-in video controls bar, separate from our "⛶ Zoom" button). Tapping
+      // it hands the video to the OS fullscreen surface, which renders the raw
+      // source with none of our CSS crop applied — that's the "crop disappears"
+      // bug. Bounce straight back out and open our own cropped viewer instead.
+      if(!vid._fsGuardAdded){
+        vid._fsGuardAdded=true;
+        vid.addEventListener('webkitbeginfullscreen',()=>{
+          try{vid.webkitExitFullscreen();}catch(e){}
+          if(vid.id)setTimeout(()=>expandVideo(vid.id),50);
+        });
+      }
       const visW=Math.max(0.01,1-l-r), visH=Math.max(0.01,1-t-b);
       const nw=vid.videoWidth||1280, nh=vid.videoHeight||720;
       const visNW=nw*visW, visNH=nh*visH;
@@ -2682,6 +2694,18 @@ function applyVideoCrops(){
       vid.style.display='block';
     }catch(e){console.warn('applyVideoCrops:',e);}
   });
+}
+// applyVideoCrops needs the video's real native dimensions AND a laid-out,
+// visible parent card to size the crop correctly. A single requestAnimationFrame
+// right after innerHTML is set isn't always enough — e.g. right after opening the
+// case detail overlay the card can still measure 0-width for a moment — and any
+// wrapper it can't size correctly at that instant is left uncropped with no retry.
+// Re-running it a couple more times shortly after covers that; it's cheap and
+// idempotent (already-correct crops just get rewritten with the same values).
+function scheduleApplyVideoCrops(){
+  requestAnimationFrame(applyVideoCrops);
+  setTimeout(applyVideoCrops,150);
+  setTimeout(applyVideoCrops,500);
 }
 function videoCropWrapStyle(crop){
   // Expand wrapper to compensate so video fills its space after clipping
@@ -3369,7 +3393,7 @@ async function saveMediaEdit(){
       if(hasCrop){
         vidWrap.dataset.crop=JSON.stringify(cropData);
         vidWrap.style.position='relative';
-        requestAnimationFrame(applyVideoCrops);
+        scheduleApplyVideoCrops();
       } else {
         delete vidWrap.dataset.crop;
         vidWrap.style.height='240px';
@@ -3496,6 +3520,11 @@ function expandVideo(vidId){
   v2.autoplay=true;
   v2.playsinline=true;
   v2.setAttribute('webkit-playsinline','');
+  v2.setAttribute('controlsList','nofullscreen noremoteplayback');
+  // If the crop-aware branch below is active, guard against iOS's own native
+  // fullscreen button too — same reasoning as applyVideoCrops: native fullscreen
+  // shows the raw uncropped source, so just bounce back out of it if triggered.
+  v2.addEventListener('webkitbeginfullscreen',()=>{try{v2.webkitExitFullscreen();}catch(e){}});
   v2.style.cssText='width:100%;height:100%;object-fit:contain;';
   // Set src AFTER attaching listeners — on mobile Safari load() can fire
   // loadedmetadata synchronously before a listener added afterward would catch it.
@@ -4662,7 +4691,7 @@ function renderFeed(){
     feed.appendChild(div);
   });
   updateSpecCounts();
-  requestAnimationFrame(applyVideoCrops);
+  scheduleApplyVideoCrops();
 }
 
 function selectCase(id,el){
@@ -5732,7 +5761,7 @@ function openCaseDetail(id){
         </div>
       </div>
       <div class="cd-video-player-wrap" style="overflow:hidden;position:relative;" ${c.videoCrop?`data-crop="${JSON.stringify(c.videoCrop).replace(/"/g,'&quot;')}"`:''}>
-        <video id="${vidId}" class="cd-video-player" src="${c.videoUrl}" controls playsinline preload="metadata"
+        <video id="${vidId}" class="cd-video-player" src="${c.videoUrl}" controls playsinline preload="metadata" controlsList="nofullscreen noremoteplayback"
           style="width:100%;object-fit:contain;"
           data-erase-rects="${c.videoCrop&&c.videoCrop.eraseRects?JSON.stringify(c.videoCrop.eraseRects).replace(/"/g,'&quot;'):''}"
           >
@@ -5742,7 +5771,7 @@ function openCaseDetail(id){
       </div>
     </div>`;
     ecgBlock.style.display='block';
-    requestAnimationFrame(applyVideoCrops);
+    scheduleApplyVideoCrops();
   } else if(c.hasECG||c.ecgImageUrl){
     if(c.ecgImageUrl){
       ecgBlock.innerHTML=`<div class="cd-ecg-block">
@@ -7260,6 +7289,27 @@ function toggleTheme(){
   }
 
 })();
+
+// ── REFRESH ON RESUME ──────────────────────────────────────────────────
+// As an installed PWA (or just a backgrounded Safari tab), iOS very often
+// restores the exact page it suspended — instantly showing whatever feed
+// state was last rendered — instead of re-running this script from scratch.
+// That's the "an old case shows up before it refreshes to the current feed"
+// symptom. Explicitly re-pull the live data whenever the page is restored
+// from that suspended state, or simply becomes visible again after a while.
+window.addEventListener('pageshow',(e)=>{
+  if(e.persisted && currentUser && supabaseClient){
+    loadCasesFromDB();
+    loadNotificationsFromDB();
+  }
+});
+let _lastVisibleRefresh=Date.now();
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible' && currentUser && supabaseClient && Date.now()-_lastVisibleRefresh>30000){
+    _lastVisibleRefresh=Date.now();
+    loadCasesFromDB();
+  }
+});
 </script>
 <!-- EDIT CASE MODAL -->
 <div class="post-modal-overlay" id="edit-modal-overlay" style="z-index:460;">
